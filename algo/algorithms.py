@@ -1,16 +1,18 @@
-from utils import AlgOut
 import torch.nn as nn
 import torch.nn.functional as F
 
+from algo.utils import AlgOut, get_optimizer, get_scheduler
+
 
 class Algorithm(nn.Module):
-    def __init__(self, model, optimizer, scheduler, device, hparams):
+    def __init__(self, model, device, args):
         super().__init__()
-        self.model = model
-        self.optimizer = optimizer
-        self.scheduler = scheduler
+        self.model = model.to(device)
+        self.optimizer = get_optimizer(args.optimizer, model, args)
+        self.scheduler = get_scheduler(args.scheduler, self.optimizer,
+                                       args.n_train_steps, args)
         self.device = device
-        self.hparams = hparams
+        self.args = args
 
     def update(self, batch):
         raise NotImplementedError
@@ -26,7 +28,8 @@ class ERM(Algorithm):
         out = self.predict(x, y=y)
         out.loss.backward()
         self.optimizer.step()
-        self.scheduler.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
         return out
 
     def predict(self, x, y=None):
