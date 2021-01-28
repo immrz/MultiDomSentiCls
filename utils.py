@@ -161,6 +161,8 @@ class MultiDomCSVLogger:
         self.ma = MABinary() if binary else MABase()
         self.group_ma = {}  # domain id -> domain moving average
         self.id2domain = {v: k for k, v in domain2id.items()}
+        self.has_setup = False
+        self.writer = None
 
     def get_overall_ma(self):
         return self.ma.tostring()
@@ -179,21 +181,29 @@ class MultiDomCSVLogger:
             mask = domain_ids == domain
             self.group_ma[domain].update(-1, pred[mask], label[mask])
 
-    def write(self):
+    def setup(self, fields):
+        """
+        Setup the csv. Write the head.
+        """
+        assert (not self.has_setup) and (self.writer is None)
+        self.writer = csv.DictWriter(self.file, fieldnames=fields)
+        self.writer.writeheader()
+        self.has_setup = True
+
+    def write(self, epoch):
         """
         Write the overall loss and acc, as well as the domainwise acc into csv.
         This should be performed exactly once an epoch.
         """
-        row = self.ma.todict()
-        fields = self.ma.fields
+        row = {'Epoch': epoch}
+        row.update(self.ma.todict())
         for domain_id in self.group_ma:
             domain_name = self.id2domain[domain_id]
             local = self.group_ma[domain_id].todict(prefix=f'{domain_name}_')
-            fields = fields + local.keys()
             row.update(local)
-        writer = csv.DictWriter(self.file, fieldnames=fields)
-        writer.writeheader()
-        writer.writerow(row)
+        if not self.has_setup:
+            self.setup(list(row.keys()))
+        self.writer.writerow(row)
         self.reset()
 
     def reset(self):
