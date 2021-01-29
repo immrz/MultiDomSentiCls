@@ -1,10 +1,13 @@
 from data.datasets import ATMFDataset
 from model import init_model
 from algo import init_algorithm
-from utils import ParseKwargs
+from utils import ParseKwargs, set_seed, Logger, MultiDomCSVLogger
+from hparams_registry import populate_args
 
 from argparse import ArgumentParser
 import os
+
+from torch.utils.data import DataLoader
 
 
 def parse_args():
@@ -12,9 +15,11 @@ def parse_args():
 
     # required arg
     parser.add_argument('--algorithm', type=str, required=True)
+    parser.add_argument('--target', type=str, required=True)
 
     # IO arg
-    parser.add_argument('--path', type=str, default='data/preprocessed.csv')
+    parser.add_argument('--dataset', type=str, default='ATMF')
+    parser.add_argument('--path', type=str)
     parser.add_argument('--log_dir', type=str, default='log/')
 
     # algorithm arg
@@ -26,6 +31,7 @@ def parse_args():
 
     # dataloader arg
     parser.add_argument('--batch_size', type=int)
+    parser.add_argument('--num_workers', type=int, default=16)
 
     # optimization arg
     parser.add_argument('--n_epochs', type=int)
@@ -44,10 +50,13 @@ def parse_args():
     parser.add_argument('--log_every', type=int, default=50)
     parser.add_argument('--dry_run', action='store_true')
     parser.add_argument('--eval_only', action='store_true')
-    parser.add_argument('--resume', action='store')
+    parser.add_argument('--resume', action='store_true')
 
     args = parser.parse_args()
-    # TODO: initialize empty fields
+
+    # initialize empty fields
+    args = populate_args(args)
+
     return args
 
 

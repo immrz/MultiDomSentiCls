@@ -1,6 +1,7 @@
 import os
 import csv
 import sys
+import random
 import argparse
 import torch
 import numpy as np
@@ -31,6 +32,16 @@ class ParseKwargs(argparse.Action):
                 processed_val = value_str
 
             getattr(namespace, self.dest)[key] = processed_val
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
 
 def detach(f):
@@ -127,8 +138,8 @@ class MABinary(MABase):
 
 
 class Logger:
-    def __init__(self, dest, mode='w', stdout=False):
-        self.console = sys.stdout if stdout else None
+    def __init__(self, dest, mode='w'):
+        self.console = sys.stdout
         self.file = open(dest, mode)
 
     def __del__(self):
@@ -137,20 +148,18 @@ class Logger:
     def __exit__(self, *args):
         self.close()
 
-    def write(self, msg):
-        if self.console is not None:
+    def write(self, msg, stdout=False):
+        if stdout:
             self.console.write(msg)
         self.file.write(msg)
 
     def flush(self):
-        if self.console is not None:
-            self.console.flush()
+        self.console.flush()
         self.file.flush()
         os.fsync(self.file.fileno())
 
     def close(self):
-        if self.console is not None:
-            self.console.close()
+        self.console.close()
         self.file.close()
 
 
