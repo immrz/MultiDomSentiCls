@@ -36,6 +36,9 @@ class ParseKwargs(argparse.Action):
 
 
 def set_seed(seed):
+    """
+    Make the results reproducible.
+    """
     random.seed(seed)
     np.random.seed(seed)
     if torch.cuda.is_available():
@@ -46,6 +49,9 @@ def set_seed(seed):
 
 
 def pretty_args(args):
+    """
+    Return a nice string repr of the argparse.Namespace object.
+    """
     s = 'Args:\n'
     for name, val in vars(args).items():
         s += f'{name.replace("_", " ").capitalize()}: {val}\n'
@@ -53,6 +59,9 @@ def pretty_args(args):
 
 
 def detach(f):
+    """
+    Decorator that migrates the arguments of function f to ndarray or scalar.
+    """
     def wrapper(*args):
         new_args = [args[0]]  # the first arg is the MA object
         for arg in args[1:]:
@@ -75,6 +84,26 @@ def safe_divide(a, b):
         return a / b
 
 
+def save_with_aux(module, epoch, best_metric, path):
+    """
+    Save the state dict of module as well as some auxiliary info.
+    """
+    state = {}
+    state['module'] = module.state_dict()
+    state['epoch'] = epoch
+    state['best_metric'] = best_metric
+    torch.save(state, path)
+
+
+def load_with_aux(module, path):
+    """
+    The inverse of `save_with_aux`.
+    """
+    state = torch.load(path)
+    module.load_state_dict(state['module'])
+    return state['epoch'], state['best_metric']
+
+
 class MABase:
     """
     Base class for Moving Average.
@@ -86,7 +115,7 @@ class MABase:
         self.fields = ['avg_loss', 'avg_acc']
 
     def update(self, batch_loss, pred, label):
-        batch_size = len(label)
+        batch_size = 1 if isinstance(label, int) else len(label)
         self.total_loss += batch_size * batch_loss
         self.correct += np.sum(pred == label)
         self.n += batch_size

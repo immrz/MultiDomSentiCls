@@ -1,7 +1,7 @@
 from model import init_model
 from algo import init_algorithm
 from data import init_dataset
-from utils import ParseKwargs, set_seed, Logger, pretty_args
+from utils import ParseKwargs, set_seed, Logger, pretty_args, save_with_aux
 from hparams_registry import populate_args
 
 from argparse import ArgumentParser
@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 import torch
 
 
-def parse_args():
+def parse_args(cmd_line=None):
     parser = ArgumentParser()
 
     # required arg
@@ -55,7 +55,12 @@ def parse_args():
     parser.add_argument('--eval_only', action='store_true')
     parser.add_argument('--resume', action='store_true')
 
-    args = parser.parse_args()
+    # parse args
+    if cmd_line is None:
+        args = parser.parse_args()
+    else:
+        # efficient for ipython
+        args = parser.parse_args(cmd_line.split())
 
     # initialize empty fields
     # don't forget to add n_train_steps after getting training set
@@ -145,7 +150,8 @@ def main(args):
                            logger, args, epoch)
         if metric > best_metric:
             logger.write(f'Saving best at epoch {epoch}')
-            torch.save(algorithm.state_dict, best_save)
+            best_metric = metric
+            save_with_aux(algorithm, epoch, best_metric, best_save)
 
         # other splits
         for split in [s for s in datasets if s not in ['train', 'valid']]:

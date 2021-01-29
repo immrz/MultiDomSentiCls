@@ -21,7 +21,7 @@ def init_dataset(name, args):
                          'pin_memory': True}
 
         if split == 'train':
-            loader = DataLoader(shuffle=True, **loader_kwargs)
+            loader = DataLoader(shuffle=True, drop_last=True, **loader_kwargs)
             args.n_train_steps = len(loader) * args.n_epochs
 
         else:
