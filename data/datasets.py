@@ -12,7 +12,7 @@ class MultiDomainDataset:
     def check_init(self):
         required_attrs = ['_y_array', '_domain_ids',
                           '_split_array', '_split_dict',
-                          '_n_classes']
+                          '_n_classes', '_domain2id']
         for attr_name in required_attrs:
             assert hasattr(self, attr_name), f'Missing attr {attr_name}'
 
@@ -51,6 +51,10 @@ class MultiDomainDataset:
     def n_classes(self):
         return self._n_classes
 
+    @property
+    def domain2id(self):
+        return self._domain2id
+
     def get_input(self, idx):
         raise NotImplementedError
 
@@ -67,9 +71,9 @@ class ATMFDataset(MultiDomainDataset):
         self._y_array = torch.tensor(
             self.data['label'].replace(self.label2id).values).long()
 
-        self.domain2id = {'A': 0, 'T': 1, 'M': 2, 'F': 3}
+        self._domain2id = {'A': 0, 'T': 1, 'M': 2, 'F': 3}
         self._domain_ids = torch.tensor(
-            self.data['domain'].replace(self.domain2id).values).long()
+            self.data['domain'].replace(self._domain2id).values).long()
 
         self.init_split(target)
         super(ATMFDataset, self).__init__()

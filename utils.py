@@ -44,6 +44,13 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
+def log_args(logger, args):
+    for name, val in vars(args).items():
+        logger.write(f'{name.replace("_", " ").capitalize()}: {val}\n',
+                     stdout=True)
+    logger.write('\n', stdout=True)
+
+
 def detach(f):
     def wrapper(*args):
         new_args = [args[0]]  # the first arg is the MA object

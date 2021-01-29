@@ -1,13 +1,11 @@
-from data.datasets import ATMFDataset
 from model import init_model
 from algo import init_algorithm
-from utils import ParseKwargs, set_seed, Logger, MultiDomCSVLogger
+from data import init_dataset
+from utils import ParseKwargs, set_seed, Logger, log_args
 from hparams_registry import populate_args
 
 from argparse import ArgumentParser
 import os
-
-from torch.utils.data import DataLoader
 
 
 def parse_args():
@@ -55,6 +53,7 @@ def parse_args():
     args = parser.parse_args()
 
     # initialize empty fields
+    # don't forget to add n_train_steps after getting training set
     args = populate_args(args)
 
     return args
@@ -65,4 +64,22 @@ def run_epoch():
 
 
 def main(args):
-    pass
+    set_seed(args.seed)
+
+    if not os.path.exists(args.log_dir):
+        os.makedirs(args.log_dir)
+
+    # build dataset
+    datasets = init_dataset(args.dataset, args)
+
+    # create global logger
+    logger = Logger(os.path.join(args.log_dir, 'log.txt'))
+    log_args(logger, args)
+
+    if args.dry_run:
+        return
+
+
+if __name__ == '__main__':
+    args = parse_args()
+    main(args)
