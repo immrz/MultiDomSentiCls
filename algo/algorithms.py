@@ -34,5 +34,6 @@ class ERM(Algorithm):
 
     def predict(self, x, y=None):
         logits = self.model(x)
-        loss = None if not y else F.cross_entropy(logits, y.to(self.device))
+        loss = None if y is None else \
+            F.cross_entropy(logits, y.to(self.device))
         return AlgOut(loss=loss, logits=logits)

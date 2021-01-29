@@ -6,6 +6,9 @@ from hparams_registry import populate_args
 
 from argparse import ArgumentParser
 import os
+from tqdm.auto import tqdm
+
+import torch
 
 
 def parse_args():
@@ -26,6 +29,7 @@ def parse_args():
     # model arg
     parser.add_argument('--model', type=str)
     parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--max_token_len', type=int)
 
     # dataloader arg
     parser.add_argument('--batch_size', type=int)
@@ -33,6 +37,7 @@ def parse_args():
 
     # optimization arg
     parser.add_argument('--n_epochs', type=int)
+    parser.add_argument('--valid_metric', type=str, default='avg_acc')
     parser.add_argument('--optimizer', type=str)
     parser.add_argument('--lr', type=float)
     parser.add_argument('--wd', type=float)
@@ -59,8 +64,41 @@ def parse_args():
     return args
 
 
-def run_epoch():
-    pass
+def run_epoch(algorithm, dataset, logger, args, epoch, train=False):
+    loader = dataset['loader']
+    csv_logger = dataset['logger']
+    iterator = loader if args.verbose else tqdm(loader)
+
+    for step, batch in enumerate(iterator):
+        x, y, domain_ids = batch
+
+        if train:
+            algorithm.train()
+            batch_results = algorithm.update(batch)
+
+        else:
+            algorithm.eval()
+            batch_results = algorithm.predict(x, y=y)
+
+        loss = batch_results.loss
+        pred = torch.max(batch_results.logits, 1)[1]
+
+        # update moving average of loss and acc
+        csv_logger.update(loss, pred, y, domain_ids)
+
+        # if meet logging criterion
+        if train and (step + 1) % args.log_every == 0:
+            current_ma = csv_logger.get_overall_ma()
+            logger.write(current_ma + '\n', stdout=args.verbose)
+
+    # write the epoch results
+    metric = csv_logger.get_metric()
+    result = csv_logger.get_overall_ma()
+    logger.write(result + '\n')
+    csv_logger.write(epoch)
+    csv_logger.reset()
+
+    return metric
 
 
 def main(args):
@@ -78,11 +116,48 @@ def main(args):
     # log args and datasets
     logger.write(pretty_args(args))
     for split in datasets:
-        logger.write(f'{split.capitalize()} Split:\n')
-        logger.write(full_dataset.pretty_stats(split=split))
+        logger.write(f'{split.capitalize()} Split:')
+        logger.write(full_dataset.pretty_stats(split=split), time=False)
 
     if args.dry_run:
         return
+
+    # build model and algorithm
+    model = init_model(args.model, args.device, full_dataset.n_classes, args)
+    algorithm = init_algorithm(args.algorithm, args.device, model, args)
+
+    # model selection
+    best_metric = -1
+    best_save = os.path.join(args.log_dir, 'best_model.pth')
+
+    # training starts
+    for epoch in range(args.n_epochs):
+        logger.write(f'Epoch: {epoch}')
+
+        # training
+        logger.write('Training...')
+        run_epoch(algorithm, datasets['train'],
+                  logger, args, epoch, train=True)
+
+        # validation
+        logger.write('Validation...')
+        metric = run_epoch(algorithm, datasets['valid'],
+                           logger, args, epoch)
+        if metric > best_metric:
+            logger.write(f'Saving best at epoch {epoch}')
+            torch.save(algorithm.state_dict, best_save)
+
+        # other splits
+        for split in [s for s in datasets if s not in ['train', 'valid']]:
+            logger.write(f'{split.capitalize()} Split:')
+            run_epoch(algorithm, datasets[split],
+                      logger, args, epoch)
+
+    # finished
+    logger.write('Finished')
+    logger.close()
+    for split in datasets:
+        datasets[split]['logger'].close()
 
 
 if __name__ == '__main__':

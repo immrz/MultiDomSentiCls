@@ -16,6 +16,7 @@ def _hparams(algorithm, dataset, seed):
         hparams[name] = (default, random_fn(random_state))
 
     register('model', 'bert-base-uncased', lambda r: 'bert-base-uncased')
+    register('max_token_len', 512, lambda r: r.choice([128, 256, 512]))
     register('batch_size', 16, lambda r: 2**r.randint(2, 5))
     register('n_epochs', 3, lambda r: r.choice([3, 4]))
     register('optimizer', 'AdamW', lambda r: 'AdamW')

@@ -5,6 +5,7 @@ import random
 import argparse
 import torch
 import numpy as np
+from datetime import datetime
 
 
 class ParseKwargs(argparse.Action):
@@ -45,7 +46,7 @@ def set_seed(seed):
 
 
 def pretty_args(args):
-    s = ''
+    s = 'Args:\n'
     for name, val in vars(args).items():
         s += f'{name.replace("_", " ").capitalize()}: {val}\n'
     return s + '\n'
@@ -155,7 +156,13 @@ class Logger:
     def __exit__(self, *args):
         self.close()
 
-    def write(self, msg, stdout=True):
+    def write(self, msg, stdout=True, time=True):
+        msg += '\n'
+        if time:
+            now = datetime.now()
+            time_s = now.strftime('%d/%m %H:%M:%S')
+            msg = time_s + ' - ' + msg
+
         if stdout:
             self.console.write(msg)
         self.file.write(msg)
@@ -171,17 +178,27 @@ class Logger:
 
 
 class MultiDomCSVLogger:
-    def __init__(self, dest, domain2id, mode='w', binary=True):
+    def __init__(self, dest, domain2id, mode='w',
+                 binary=True, metric='avg_acc'):
+
         self.file = open(dest, mode)
         self.binary = binary
+        self.metric = metric
+
         self.ma = MABinary() if binary else MABase()
+        assert hasattr(self.ma, self.metric)
+
         self.group_ma = {}  # domain id -> domain moving average
         self.id2domain = {v: k for k, v in domain2id.items()}
+
         self.has_setup = False
         self.writer = None
 
     def get_overall_ma(self):
         return self.ma.tostring()
+
+    def get_metric(self):
+        return getattr(self.ma, self.metric)
 
     @detach
     def update(self, batch_loss, pred, label, domain_ids):
@@ -220,7 +237,6 @@ class MultiDomCSVLogger:
         if not self.has_setup:
             self.setup(list(row.keys()))
         self.writer.writerow(row)
-        self.reset()
 
     def reset(self):
         self.ma.reset()

@@ -33,6 +33,7 @@ def init_dataset(name, args):
             os.path.join(args.log_dir, f'{split}_epochs.csv'),
             full_dataset.domain2id,
             binary=full_dataset.n_classes == 2,
+            metric=args.valid_metric,
         )
 
     return full_dataset, datasets

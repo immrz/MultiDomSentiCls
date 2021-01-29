@@ -124,4 +124,4 @@ class ATMFDataset(MultiDomainDataset):
             mask = self.split_array == self.split_dict[split]
             sub_data = self.data.loc[mask]
             info = sub_data.groupby(gb).size()
-        return repr(info) + '\n' + '\n'
+        return repr(info) + '\n'

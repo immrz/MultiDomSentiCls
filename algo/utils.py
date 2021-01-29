@@ -36,7 +36,7 @@ def get_optimizer(name, model, args):
 
 
 def get_scheduler(name, optimizer, n_train_steps, args):
-    if name is None:
+    if name is None or name.lower() == 'none':
         sche = None
 
     elif name == 'linear_schedule_with_warmup':
