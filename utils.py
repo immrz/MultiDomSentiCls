@@ -44,11 +44,11 @@ def set_seed(seed):
     torch.backends.cudnn.deterministic = True
 
 
-def log_args(logger, args):
+def pretty_args(args):
+    s = ''
     for name, val in vars(args).items():
-        logger.write(f'{name.replace("_", " ").capitalize()}: {val}\n',
-                     stdout=True)
-    logger.write('\n', stdout=True)
+        s += f'{name.replace("_", " ").capitalize()}: {val}\n'
+    return s + '\n'
 
 
 def detach(f):
@@ -155,7 +155,7 @@ class Logger:
     def __exit__(self, *args):
         self.close()
 
-    def write(self, msg, stdout=False):
+    def write(self, msg, stdout=True):
         if stdout:
             self.console.write(msg)
         self.file.write(msg)

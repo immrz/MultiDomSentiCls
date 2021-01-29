@@ -37,6 +37,10 @@ class MultiDomainDataset:
 
     @property
     def split_array(self):
+        """
+        np.ndarray. Same length as the dataset. Contains the split id
+        of each sample.
+        """
         return self._split_array
 
     @property
@@ -45,6 +49,9 @@ class MultiDomainDataset:
 
     @property
     def split_dict(self):
+        """
+        str -> int. Map keys like 'train' and 'valid' to ids.
+        """
         return self._split_dict
 
     @property
@@ -56,9 +63,20 @@ class MultiDomainDataset:
         return self._domain2id
 
     def get_input(self, idx):
+        """
+        Get x at idx. Should be overloaded because different datasets
+        may have different ways to store x.
+        """
         raise NotImplementedError
 
     def init_split(self, target):
+        raise NotImplementedError
+
+    def pretty_stats(self, split=None):
+        """
+        Return a pretty string representation of the statistics of the certain
+        split of this dataset. If split is None, use the full dataset instead.
+        """
         raise NotImplementedError
 
 
@@ -97,3 +115,13 @@ class ATMFDataset(MultiDomainDataset):
         split_array[valid_mask & (~test_mask)] = self._split_dict['valid']
 
         self._split_array = split_array
+
+    def pretty_stats(self, split=None):
+        gb = ['domain', 'label']
+        if split is None:
+            info = self.data.groupby(gb).size()
+        else:
+            mask = self.split_array == self.split_dict[split]
+            sub_data = self.data.loc[mask]
+            info = sub_data.groupby(gb).size()
+        return repr(info) + '\n' + '\n'

@@ -1,7 +1,7 @@
 from model import init_model
 from algo import init_algorithm
 from data import init_dataset
-from utils import ParseKwargs, set_seed, Logger, log_args
+from utils import ParseKwargs, set_seed, Logger, pretty_args
 from hparams_registry import populate_args
 
 from argparse import ArgumentParser
@@ -70,11 +70,16 @@ def main(args):
         os.makedirs(args.log_dir)
 
     # build dataset
-    datasets = init_dataset(args.dataset, args)
+    full_dataset, datasets = init_dataset(args.dataset, args)
 
     # create global logger
     logger = Logger(os.path.join(args.log_dir, 'log.txt'))
-    log_args(logger, args)
+
+    # log args and datasets
+    logger.write(pretty_args(args))
+    for split in datasets:
+        logger.write(f'{split.capitalize()} Split:\n')
+        logger.write(full_dataset.pretty_stats(split=split))
 
     if args.dry_run:
         return

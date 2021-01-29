@@ -35,4 +35,4 @@ def init_dataset(name, args):
             binary=full_dataset.n_classes == 2,
         )
 
-    return datasets
+    return full_dataset, datasets
