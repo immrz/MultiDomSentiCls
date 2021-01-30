@@ -2,3 +2,6 @@
 **/__pycache__
 *.csv
 log
+.ptconfig
+pt
+.ptignore

@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 
 def _hparams(algorithm, dataset, seed):
@@ -17,7 +18,7 @@ def _hparams(algorithm, dataset, seed):
 
     register('model', 'bert-base-uncased', lambda r: 'bert-base-uncased')
     register('max_token_len', 512, lambda r: r.choice([128, 256, 512]))
-    register('batch_size', 16, lambda r: 2**r.randint(2, 5))
+    register('batch_size', 8, lambda r: 2**r.randint(2, 5))
     register('n_epochs', 3, lambda r: r.choice([3, 4]))
     register('optimizer', 'AdamW', lambda r: 'AdamW')
     register('lr', 2e-5, lambda r: r.randint(2, 6)*10**r.randint(-6, -4))
@@ -49,6 +50,9 @@ def populate_args(args, random=False, overwrite=False):
     if args.scheduler == 'linear_schedule_with_warmup':
         args.scheduler_kwargs = {'num_warmup_steps': 0}
     if args.dataset == 'ATMF':
-        args.path = 'data/preprocessed.csv'
+        args.path = os.path.join(
+            os.environ.get('PT_DATA_DIR', 'data/data_root'),
+            'preprocessed.csv',
+        )
 
     return args

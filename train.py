@@ -21,7 +21,8 @@ def parse_args(cmd_line=None):
     # IO arg
     parser.add_argument('--dataset', type=str, default='ATMF')
     parser.add_argument('--path', type=str)
-    parser.add_argument('--log_dir', type=str, default='log/')
+    parser.add_argument('--log_dir', type=str,
+                        default=os.environ.get('PT_OUTPUT_DIR', 'log/'))
 
     # algorithm arg
     # TODO
