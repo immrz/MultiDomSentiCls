@@ -173,8 +173,8 @@ class MABinary(MABase):
     """
     Moving Average in binary classification.
     """
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *extra_losses):
+        super().__init__(*extra_losses)
         self.tp = 0
         self.tn = 0
         self.fp = 0
@@ -236,13 +236,13 @@ class Logger:
 
 class MultiDomCSVLogger:
     def __init__(self, dest, domain2id, mode='w',
-                 binary=True, metric='avg_acc'):
+                 binary=True, metric='avg_acc', extra_losses=[]):
 
         self.file = open(dest, mode)
         self.binary = binary
         self.metric = metric
 
-        self.ma = MABinary() if binary else MABase()
+        self.ma = MABinary(*extra_losses) if binary else MABase(*extra_losses)
         assert hasattr(self.ma, self.metric)
 
         self.group_ma = {}  # domain id -> domain moving average
@@ -291,7 +291,7 @@ class MultiDomCSVLogger:
             domain_name = self.id2domain[domain_id]
             local = self.group_ma[domain_id].todict(prefix=f'{domain_name}_')
 
-            for k in local:
+            for k in list(local.keys()):
                 if k.endswith('loss'):
                     del local[k]  # the losses are not computed domain-wise
 

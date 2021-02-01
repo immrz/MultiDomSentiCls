@@ -147,8 +147,9 @@ def main(args):
 
         # validation
         logger.write('Validation...')
-        metric = run_epoch(algorithm, datasets['valid'],
-                           logger, args, epoch)
+        with torch.no_grad():
+            metric = run_epoch(algorithm, datasets['valid'],
+                               logger, args, epoch)
         if metric > best_metric:
             logger.write(f'Saving best at epoch {epoch}')
             best_metric = metric
@@ -157,8 +158,9 @@ def main(args):
         # other splits
         for split in [s for s in datasets if s not in ['train', 'valid']]:
             logger.write(f'{split.capitalize()} Split:')
-            run_epoch(algorithm, datasets[split],
-                      logger, args, epoch)
+            with torch.no_grad():
+                run_epoch(algorithm, datasets[split],
+                          logger, args, epoch)
 
     # finished
     logger.write('Finished')
