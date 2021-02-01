@@ -31,6 +31,12 @@ class MultiDomainDataset:
         split_idx = np.where(mask)[0]
         return Subset(self, split_idx)
 
+    def init_domain2id(self, domains, target):
+        self._domain2id = {}
+        for i, d in enumerate(x for x in domains if x != target):
+            self._domain2id[d] = i
+        self._domain2id[target] = len(domains) - 1  # target always the last
+
     @property
     def y_array(self):
         return self._y_array
@@ -89,7 +95,7 @@ class ATMFDataset(MultiDomainDataset):
         self._y_array = torch.tensor(
             self.data['label'].replace(self.label2id).values).long()
 
-        self._domain2id = {'A': 0, 'T': 1, 'M': 2, 'F': 3}
+        self.init_domain2id(['A', 'T', 'M', 'F'], target)
         self._domain_ids = torch.tensor(
             self.data['domain'].replace(self._domain2id).values).long()
 

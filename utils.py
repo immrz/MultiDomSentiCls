@@ -64,16 +64,23 @@ def detach(f):
     """
     def wrapper(*args):
         new_args = [args[0]]  # the first arg is the MA object
+
         for arg in args[1:]:
             if isinstance(arg, torch.Tensor):
                 if arg.numel() == 1:
                     arg = arg.item()
                 else:
                     arg = arg.cpu().numpy()
+
+            elif isinstance(arg, dict):  # only losses may be dict
+                arg = {k: v.item() for k, v in arg.items()}
+
             else:
                 assert isinstance(arg, (int, float, np.ndarray))
+
             new_args.append(arg)
         return f(*new_args)
+
     return wrapper
 
 
@@ -108,15 +115,35 @@ class MABase:
     """
     Base class for Moving Average.
     """
-    def __init__(self):
+    def __init__(self, *extra_losses):
         self.total_loss = 0.
         self.correct = 0
         self.n = 0
         self.fields = ['avg_loss', 'avg_acc']
 
+        # register extra losses like discriminator loss for DANN
+        self.extra_losses = list(extra_losses)
+        for loss in extra_losses:
+            # register the total loss
+            setattr(self, f'total_{loss}', 0.)
+            # register the avg loss as property
+            setattr(self.__class__, loss, property(
+                lambda o: safe_divide(getattr(o, f'total_{loss}'), o.n)))
+
     def update(self, batch_loss, pred, label):
         batch_size = 1 if isinstance(label, int) else len(label)
-        self.total_loss += batch_size * batch_loss
+
+        if isinstance(batch_loss, dict):
+            self.total_loss += batch_size * batch_loss['loss']
+            for k, v in batch_loss.items():  # extra losses
+                if k == 'loss':
+                    continue
+                k = f'total_{k}'  # update the total loss
+                cur = getattr(self, k)
+                setattr(self, k, cur + batch_size * v)
+        else:
+            self.total_loss += batch_size * batch_loss
+
         self.correct += np.sum(pred == label)
         self.n += batch_size
 
@@ -130,12 +157,13 @@ class MABase:
 
     def tostring(self):
         s = ''
-        for f in self.fields:
+        for f in self.fields + self.extra_losses:
             s += '{:s}: {:.4f}\n'.format(f, getattr(self, f))
         return s
 
     def todict(self, prefix=''):
-        return {prefix+f: getattr(self, f) for f in self.fields}
+        return {prefix + f: getattr(self, f)
+                for f in self.fields + self.extra_losses}
 
     def reset(self):
         self.__init__()
@@ -262,6 +290,11 @@ class MultiDomCSVLogger:
         for domain_id in self.group_ma:
             domain_name = self.id2domain[domain_id]
             local = self.group_ma[domain_id].todict(prefix=f'{domain_name}_')
+
+            for k in local:
+                if k.endswith('loss'):
+                    del local[k]  # the losses are not computed domain-wise
+
             row.update(local)
         if not self.has_setup:
             self.setup(list(row.keys()))
