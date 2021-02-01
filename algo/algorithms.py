@@ -66,7 +66,7 @@ class DANN(ERM):
 
         # adversarial training
         disc_logits = self.disc(GRL.apply(emb))
-        disc_loss = F.cross_entropy(disc_logits, domain_ids)
+        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device))
 
         # backward
         total_loss = out.loss + self.alpha_d * disc_loss
@@ -78,6 +78,5 @@ class DANN(ERM):
             self.scheduler.step()
 
         # also return discriminator loss
-        out.loss = {'loss': out.loss, 'disc_loss': disc_loss}
-
-        return out
+        return AlgOut(loss={'loss': out.loss, 'disc_loss': disc_loss},
+                      logits=out.logits)

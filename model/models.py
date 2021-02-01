@@ -40,7 +40,7 @@ class BertClassifier(nn.Module):
 
     def get_input_hook(self):
         def hook(module, input, output):
-            self.emb = input
+            self.emb = input[0]
         return hook
 
     def forward(self, x: Union[List[str], Dict[str, torch.Tensor]]):
