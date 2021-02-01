@@ -42,19 +42,19 @@ class ERM(Algorithm):
 
 
 class DANN(ERM):
-    def __init__(self, model, device, num_domains, num_hidden_d,
+    def __init__(self, model, device, n_domains, num_hidden_d,
                  hidden_size_d, alpha_d, args):
         super().__init__(model, device, args)
         self.alpha_d = alpha_d
 
         # discriminator
-        self.disc = MLP(self.model.out_size, num_domains,
+        self.disc = MLP(self.model.out_size, n_domains,
                         num_hidden_d, hidden_size_d)
 
         # optimizer of discriminator
         self.opt_disc = optim.Adam(self.disc.parameters(),
                                    lr=args.lr2,
-                                   wd=args.wd2)
+                                   weight_decay=args.wd2)
 
     def update(self, batch):
         self.optimizer.zero_grad()

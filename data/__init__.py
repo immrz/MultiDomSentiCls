@@ -34,6 +34,7 @@ def init_dataset(name, args):
             full_dataset.domain2id,
             binary=full_dataset.n_classes == 2,
             metric=args.valid_metric,
+            extra_losses=args.extra_losses,
         )
 
     return full_dataset, datasets

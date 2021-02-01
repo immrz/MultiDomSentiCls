@@ -255,7 +255,8 @@ class MultiDomCSVLogger:
         return self.ma.tostring()
 
     def get_metric(self):
-        return getattr(self.ma, self.metric)
+        metric = getattr(self.ma, self.metric)
+        return -metric if self.metric.endswith('loss') else metric
 
     @detach
     def update(self, batch_loss, pred, label, domain_ids):

@@ -16,25 +16,41 @@ def _hparams(algorithm, dataset, seed):
         random_state = np.random.RandomState(seed)
         hparams[name] = (default, random_fn(random_state))
 
-    register('model', 'bert-base-uncased', lambda r: 'bert-base-uncased')
+    # common hparams
     register('max_token_len', 512, lambda r: r.choice([128, 256, 512]))
-    register('batch_size', 8, lambda r: 2**r.randint(2, 5))
+    register('batch_size', 8, lambda r: r.choice([4, 8, 16, 32]))
     register('n_epochs', 3, lambda r: r.choice([3, 4]))
-    register('optimizer', 'AdamW', lambda r: 'AdamW')
     register('lr', 2e-5, lambda r: r.randint(2, 6)*10**r.randint(-6, -4))
     register('wd', 0.01, lambda r: 10**r.randint(-4, 0))
-    register('scheduler', 'linear_schedule_with_warmup',
-             lambda r: 'linear_schedule_with_warmup')
+    hparams['optimizer'] = ('AdamW',)
+    hparams['scheduler'] = ('linear_schedule_with_warmup',)
+
+    if algorithm == 'ERM':  # ERM hparams
+        hparams['extra_losses'] = ([],)
+    elif algorithm == 'DANN':  # DANN hparams
+        register('lr2', 2e-5, lambda r: 10**r.uniform(-5, -3.5))
+        register('wd2', 0., lambda r: 10**r.uniform(-6, -2))
+        register('alpha_d', 0.1, lambda r: 10**r.uniform(-3, 1))
+        register('hidden_size_d', 1024, lambda r: r.choice([256, 512, 1024]))
+        register('num_hidden_d', 1, lambda r: r.randint(0, 4))
+        hparams['extra_losses'] = (['disc_loss'],)
+    else:
+        raise NotImplementedError
+
+    if dataset == 'ATMF':
+        hparams['n_domains'] = (3,)
+    else:
+        raise NotImplementedError
 
     return hparams
 
 
 def default_hparams(algorithm, dataset):
-    return {a: b for a, (b, c) in _hparams(algorithm, dataset, 0).items()}
+    return {k: v[0] for k, v in _hparams(algorithm, dataset, 0).items()}
 
 
 def random_hparams(algorithm, dataset, seed):
-    return {a: c for a, (b, c) in _hparams(algorithm, dataset, seed).items()}
+    return {k: v[-1] for k, v in _hparams(algorithm, dataset, seed).items()}
 
 
 def populate_args(args, random=False, overwrite=False):

@@ -65,7 +65,7 @@ class BertClassifier(nn.Module):
 
 class MLP(nn.Module):
     def __init__(self, in_size, out_size, num_hidden, hidden_size):
-        super.__init()
+        super().__init__()
         self.out_size = out_size
 
         if num_hidden == 0:  # linear

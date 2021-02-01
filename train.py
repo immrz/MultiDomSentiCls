@@ -25,10 +25,18 @@ def parse_args(cmd_line=None):
                         default=os.environ.get('PT_OUTPUT_DIR', 'log/'))
 
     # algorithm arg
-    # TODO
+    # DANN
+    parser.add_argument('--alpha_d', type=float)
+    parser.add_argument('--hidden_size_d', type=int)
+    parser.add_argument('--num_hidden_d', type=int)
+    parser.add_argument('--lr2', type=float)
+    parser.add_argument('--wd2', type=float)
+    parser.add_argument('--extra_losses', type=str, nargs='*')
+    parser.add_argument('--n_domains', type=int,
+                        help='output size of discriminator')
 
     # model arg
-    parser.add_argument('--model', type=str)
+    parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--device', type=str, default='cuda:0')
     parser.add_argument('--max_token_len', type=int)
 
@@ -133,7 +141,7 @@ def main(args):
     algorithm = init_algorithm(args.algorithm, args.device, model, args)
 
     # model selection
-    best_metric = -1
+    best_metric = -1e6
     best_save = os.path.join(args.log_dir, 'best_model.pth')
 
     # training starts
