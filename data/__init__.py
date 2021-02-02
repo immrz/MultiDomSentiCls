@@ -1,7 +1,7 @@
 from torch.utils.data import DataLoader
 from collections import defaultdict
 from utils import MultiDomCSVLogger
-from data.datasets import ATMFDataset
+from data.datasets import ATMFDataset, ATMFOracleDataset
 import os
 
 
@@ -9,7 +9,11 @@ def init_dataset(name, args):
     datasets = defaultdict(dict)
 
     if name == 'ATMF':
-        full_dataset = ATMFDataset(args.path, args.target)
+        if args.oracle:
+            assert args.algorithm == 'ERM'
+            full_dataset = ATMFOracleDataset(args.path, args.target)
+        else:
+            full_dataset = ATMFDataset(args.path, args.target)
     else:
         raise NotImplementedError
 

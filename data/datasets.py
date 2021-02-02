@@ -16,6 +16,9 @@ class MultiDomainDataset:
         for attr_name in required_attrs:
             assert hasattr(self, attr_name), f'Missing attr {attr_name}'
 
+        assert len(self._y_array) == len(self._domain_ids)
+        assert len(self._y_array) == len(self._split_array)
+
     def __len__(self):
         return len(self.y_array)
 
@@ -88,7 +91,8 @@ class MultiDomainDataset:
 
 class ATMFDataset(MultiDomainDataset):
     def __init__(self, path_to_csv, target):
-        self.data = pd.read_csv(path_to_csv)
+        self.read_data(path_to_csv, target)
+        self.texts = self.data['text']
 
         self._n_classes = 2
         self.label2id = {'positive': 1, 'negative': 0}
@@ -102,8 +106,11 @@ class ATMFDataset(MultiDomainDataset):
         self.init_split(target)
         super(ATMFDataset, self).__init__()
 
+    def read_data(self, path_to_csv, target):
+        self.data = pd.read_csv(path_to_csv)
+
     def get_input(self, idx):
-        return self.data.loc[idx, 'text']
+        return self.texts.iloc[idx]
 
     def init_split(self, target):
         """
@@ -131,3 +138,30 @@ class ATMFDataset(MultiDomainDataset):
             sub_data = self.data.loc[mask]
             info = sub_data.groupby(gb).size()
         return repr(info) + '\n'
+
+
+class ATMFOracleDataset(ATMFDataset):
+    def __init__(self, path_to_csv, target, ratio=(0.6, 0.2, 0.2)):
+        self.ratio = ratio
+        assert sum(ratio) == 1
+        super().__init__(path_to_csv, target)
+
+    def read_data(self, path_to_csv, target):
+        data = pd.read_csv(path_to_csv)
+        data = data[data['domain'] == target]
+        self.data = data
+
+    def init_domain2id(self, domains, target):
+        self._domain2id = {target: 0}  # only use target domain
+
+    def init_split(self, target):
+        n = len(self._y_array)
+        self._split_dict = {'train': 0, 'valid': 1, 'test': 2}
+        split_array = np.zeros(n)
+
+        perm = np.random.permutation(n)
+        num_tr, num_va = int(n * self.ratio[0]), int(n * self.ratio[1])
+        split_array[perm[num_tr:num_tr+num_va]] = self._split_dict['valid']
+        split_array[perm[num_tr+num_va:]] = self._split_dict['test']
+
+        self._split_array = split_array

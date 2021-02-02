@@ -41,6 +41,7 @@ def parse_args(cmd_line=None):
     parser.add_argument('--max_token_len', type=int)
 
     # dataloader arg
+    parser.add_argument('--oracle', action='store_true')
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--num_workers', type=int, default=16)
 
