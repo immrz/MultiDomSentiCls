@@ -67,7 +67,7 @@ def detach(f):
 
         for arg in args[1:]:
             if isinstance(arg, torch.Tensor):
-                if arg.numel() == 1:
+                if arg.numel() == 1 and arg.dtype == torch.float:
                     arg = arg.item()
                 else:
                     arg = arg.cpu().numpy()
