@@ -34,6 +34,8 @@ def _hparams(algorithm, dataset, seed):
         register('hidden_size_d', 1024, lambda r: r.choice([256, 512, 1024]))
         register('num_hidden_d', 1, lambda r: r.randint(0, 4))
         hparams['extra_losses'] = (['disc_loss'],)
+    elif algorithm == 'MLDG':
+        pass
     else:
         raise NotImplementedError
 

@@ -1,9 +1,12 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from algo.utils import AlgOut, get_optimizer, get_scheduler
 from model.models import GRL, MLP
+
+import copy
 
 
 class Algorithm(nn.Module):
@@ -80,3 +83,25 @@ class DANN(ERM):
         # also return discriminator loss
         return AlgOut(loss={'loss': out.loss, 'disc_loss': disc_loss},
                       logits=out.logits)
+
+
+class MLDG(ERM):
+    def __init__(self, model, device, alpha_meta, args):
+        super().__init__(model, device, args)
+
+        # weight of the meta loss
+        self.alpha_meta = alpha_meta
+
+        # optimizer args for inner opt
+        self.inner_lr = args.lr2
+        self.inner_wd = args.wd2
+
+    def update(self, batch):
+        self.optimizer.zero_grad()
+
+        # initialize grads first
+        for p in self.model.parameters():
+            if p.grad is None:
+                p.grad = torch.zeros_like(p)
+
+        x, y, domain_ids = batch
