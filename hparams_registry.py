@@ -35,7 +35,10 @@ def _hparams(algorithm, dataset, seed):
         register('num_hidden_d', 1, lambda r: r.randint(0, 4))
         hparams['extra_losses'] = (['disc_loss'],)
     elif algorithm == 'MLDG':
-        pass
+        register('lr2', 2e-5, lambda r: 10**r.uniform(-5, -3.5))
+        register('wd2', 0., lambda r: 10**r.uniform(-6, -2))
+        register('alpha_meta', 1.0, lambda r: 10**r.uniform(-3, 1))
+        hparams['extra_losses'] = (['meta_loss'],)
     else:
         raise NotImplementedError
 

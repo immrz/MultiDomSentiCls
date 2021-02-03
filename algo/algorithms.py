@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from algo.utils import AlgOut, get_optimizer, get_scheduler
+from algo.utils import AlgOut, get_optimizer, get_scheduler, random_pair_batch
 from model.models import GRL, MLP
 
 import copy
@@ -86,8 +86,11 @@ class DANN(ERM):
 
 
 class MLDG(ERM):
-    def __init__(self, model, device, alpha_meta, args):
+    def __init__(self, model, device, n_samples_per_domain, alpha_meta, args):
         super().__init__(model, device, args)
+
+        # number of samples per domain in a batch during training
+        self.n_samples_per_domain = n_samples_per_domain
 
         # weight of the meta loss
         self.alpha_meta = alpha_meta
@@ -97,6 +100,13 @@ class MLDG(ERM):
         self.inner_wd = args.wd2
 
     def update(self, batch):
+        """
+        For MLDG, DomainSampler is used in data loader. Therefore, `batch`
+        is assumed to contain n_src_dom * n_samples_per_dom samples. And the
+        samples are already ordered by domains.
+        """
+        nd = len(batch[1]) // self.n_samples_per_domain
+        loss, meta_loss = 0., 0.
         self.optimizer.zero_grad()
 
         # initialize grads first
@@ -104,4 +114,51 @@ class MLDG(ERM):
             if p.grad is None:
                 p.grad = torch.zeros_like(p)
 
-        x, y, domain_ids = batch
+        # use i-th domain as meta-train
+        # use j-th domain as meta-test
+        for xi, yi, xj, yj in random_pair_batch(
+                batch, self.n_samples_per_domain):
+
+            # clone the original model first
+            inner_net = copy.deepcopy(self.model)
+            inner_opt = optim.Adam(inner_net.parameters(),
+                                   lr=self.inner_wd,
+                                   weight_decay=self.inner_wd)
+            inner_opt.zero_grad()
+
+            # step using meta-train samples
+            inner_obj = F.cross_entropy(inner_net(xi), yi.to(self.device))
+            inner_obj.backward()
+            inner_opt.step()
+
+            # clone the gradient to original model
+            for p_tgt, p_src in zip(self.model.parameters(),
+                                    inner_net.parameters()):
+                if p_src.grad is not None:
+                    p_tgt.grad.add_(p_src.grad / nd)
+
+            # calculate the first-order meta-gradient
+            meta_obj = F.cross_entropy(inner_net(xj), yj.to(self.device))
+            meta_grad = torch.autograd.grad(meta_obj,
+                                            inner_net.parameters(),
+                                            allow_unused=True)
+
+            # clone the meta-gradient to original model
+            for p_tgt, g in zip(self.model.parameters(), meta_grad):
+                if g is not None:
+                    p_tgt.grad.add_(self.alpha_meta * g / nd)
+
+            # accumulate loss
+            loss += inner_obj.detach()
+            meta_loss += meta_obj.detach()
+
+        # after accumulating the grads, perform step
+        self.optimizer.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
+
+        with torch.no_grad():
+            logits = self.predict(batch[0]).logits
+
+        return AlgOut(loss={'loss': loss / nd, 'meta_loss': meta_loss / nd},
+                      logits=logits)

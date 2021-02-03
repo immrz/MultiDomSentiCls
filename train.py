@@ -35,6 +35,9 @@ def parse_args(cmd_line=None):
     parser.add_argument('--n_domains', type=int,
                         help='output size of discriminator')
 
+    # MLDG
+    parser.add_argument('--alpha_meta', type=float)
+
     # model arg
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--device', type=str, default='cuda:0')

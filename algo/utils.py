@@ -1,5 +1,6 @@
 from collections import namedtuple
 import torch.optim as optim
+import numpy as np
 from transformers import get_linear_schedule_with_warmup
 
 
@@ -50,3 +51,29 @@ def get_scheduler(name, optimizer, n_train_steps, args):
         raise NotImplementedError
 
     return sche
+
+
+def random_pair_batch(batch, ns):
+    """
+    Used for meta-learning. `batch` contains n_src_dom * n_samples_per_dom
+    samples.
+
+    Return paired [(xi, yi), (xj, yj)] where i and j indicates meta-train
+    and meta-test batches, respectivley.
+    """
+    x, y, _ = batch
+    assert len(y) % ns == 0
+    nd = len(y) // ns
+    order = np.random.permutation(nd)
+
+    for idx in range(nd):
+        i = order[idx]
+        j = order[0] if idx == nd - 1 else order[idx + 1]
+
+        i_slc = slice(i * ns, i * ns + ns)
+        j_slc = slice(j * ns, j * ns + ns)
+
+        xi, yi = x[i_slc], y[i_slc]
+        xj, yj = x[j_slc], y[j_slc]
+
+        yield xi, yi, xj, yj
