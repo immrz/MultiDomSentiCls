@@ -23,7 +23,7 @@ class GRL(torch.autograd.Function):
 
 class BertClassifier(nn.Module):
     def __init__(self, num_labels, device, bert_type='bert-base-uncased',
-                 max_token_len=512):
+                 max_token_len=512, need_hook=False):
 
         super().__init__()
         self.device = device
@@ -35,8 +35,12 @@ class BertClassifier(nn.Module):
         self.bfsc = BertForSequenceClassification.from_pretrained(
             bert_type, num_labels=num_labels)
 
-        # register the hook which helps store input to classifier layer
-        self.bfsc.classifier.register_forward_hook(self.get_input_hook())
+        # if the intermediate BERT feature is needed, use hook
+        # this should only be activated when using DANN
+        # be aware that copy.deepcopy will fail in this case
+        if need_hook:
+            # register the hook which helps store input to classifier layer
+            self.bfsc.classifier.register_forward_hook(self.get_input_hook())
 
     def get_input_hook(self):
         def hook(module, input, output):
