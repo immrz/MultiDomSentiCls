@@ -166,7 +166,11 @@ class MABase:
                 for f in self.fields + self.extra_losses}
 
     def reset(self):
-        self.__init__()
+        self.total_loss = 0.
+        self.correct = 0
+        self.n = 0
+        for loss in self.extra_losses:
+            setattr(self, f'total_{loss}', 0.)
 
 
 class MABinary(MABase):
@@ -200,6 +204,13 @@ class MABinary(MABase):
     def f1(self):
         return safe_divide(2 * self.recall * self.precision,
                            self.recall + self.precision)
+
+    def reset(self):
+        super().reset()
+        self.tp = 0
+        self.tn = 0
+        self.fp = 0
+        self.fn = 0
 
 
 class Logger:

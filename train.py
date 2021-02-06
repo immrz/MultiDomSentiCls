@@ -67,6 +67,8 @@ def parse_args(cmd_line=None):
     parser.add_argument('--dry_run', action='store_true')
     parser.add_argument('--eval_only', action='store_true')
     parser.add_argument('--resume', action='store_true')
+    parser.add_argument('--save_best', action='store_true')
+    parser.add_argument('--save_last', action='store_true')
 
     # parse args
     if cmd_line is None:
@@ -163,9 +165,10 @@ def main(args):
             metric = run_epoch(algorithm, datasets['valid'],
                                logger, args, epoch)
         if metric > best_metric:
-            logger.write(f'Saving best at epoch {epoch}')
             best_metric = metric
-            save_with_aux(algorithm, epoch, best_metric, best_save)
+            if args.save_best:
+                logger.write(f'Saving best at epoch {epoch}')
+                save_with_aux(algorithm, epoch, best_metric, best_save)
 
         # other splits
         for split in [s for s in datasets if s not in ['train', 'valid']]:
@@ -175,6 +178,9 @@ def main(args):
                           logger, args, epoch)
 
     # finished
+    if args.save_last:
+        save_with_aux(algorithm, args.n_epochs - 1, best_metric,
+                      os.path.join(args.log_dir, 'last_model.pth'))
     logger.write('Finished')
     logger.close()
     for split in datasets:

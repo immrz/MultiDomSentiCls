@@ -122,7 +122,7 @@ class MLDG(ERM):
             # clone the original model first
             inner_net = copy.deepcopy(self.model)
             inner_opt = optim.Adam(inner_net.parameters(),
-                                   lr=self.inner_wd,
+                                   lr=self.inner_lr,
                                    weight_decay=self.inner_wd)
             inner_opt.zero_grad()
 
