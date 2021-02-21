@@ -5,4 +5,5 @@ log
 .ptconfig
 pt
 .ptignore
-analysis
+analysis/**
+!analysis/*.py
