@@ -3,16 +3,24 @@ import torch
 import pandas as pd
 
 from model.models import BertClassifier
+from train import parse_args
+from algo import init_algorithm
+from model import init_model
 
 
-def parse_log_to_args(fi, names):
+def parse_log_to_args(fi, names=None):
     """
     Parse a log.txt file to a dict that contains corresponding args.
+    NOTE: The values are all in string representations.
 
     Parameters:
         fi: input stream
         names: the names of the needed args
     """
+    if names is None:
+        names = ['algorithm', 'target', 'lr', 'wd', 'lr2', 'wd2',
+                 'alpha_d', 'alpha_meta', 'hidden_size_d', 'num_hidden_d']
+
     args = {}
     for i, line in enumerate(fi):
         if i == 0:
@@ -97,3 +105,26 @@ def get_model_from_root(prefix):
         full_d = os.path.join(root, d)
         if os.path.isdir(full_d) and d.startswith(prefix):
             return load_bert_classifier(os.path.join(full_d, 'best_model.pth'))
+
+
+def get_algorithm_from_root(prefix):
+    """
+    Get the whole algorithm object that matches the given prefix.
+    """
+    root = '/home/v-runmao/projects/ATMF/pt/BEST'
+    for d in os.listdir(root):
+        full_d = os.path.join(root, d)
+        if os.path.isdir(full_d) and d.startswith(prefix):
+            with open(os.path.join(full_d, 'log.txt'), 'r') as fi:
+                args_d = parse_log_to_args(fi)
+            args_s = ' '.join([f'--{k} {v}' for k, v in args_d.items()])
+            args = parse_args(cmd_line=args_s)
+            args.n_train_steps = 0
+
+            model = init_model(args.model, 'cuda:0', 2, args)
+            algorithm = init_algorithm(args.algorithm, 'cuda:0', model, args)
+
+            algorithm.load_state_dict(torch.load(os.path.join(
+                full_d, 'best_model.pth'))['module'])
+
+            return algorithm.to('cuda:0')

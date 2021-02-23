@@ -14,8 +14,7 @@ class Algorithm(nn.Module):
         super().__init__()
         self.model = model.to(device)
         self.optimizer = get_optimizer(args.optimizer, model, args)
-        self.scheduler = get_scheduler(args.scheduler, self.optimizer,
-                                       args.n_train_steps, args)
+        self.scheduler = get_scheduler(args.scheduler, self.optimizer, args)
         self.device = device
         self.args = args
 
