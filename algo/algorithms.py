@@ -44,10 +44,22 @@ class ERM(Algorithm):
 
 
 class DANN(ERM):
-    def __init__(self, model, device, n_domains, num_hidden_d,
-                 hidden_size_d, alpha_d, args):
+    def __init__(self,
+                 model,
+                 device,
+                 n_domains,  # number of domains for training
+                 num_hidden_d,
+                 hidden_size_d,
+                 alpha_d,
+                 n_iter_disc,  # number of iterations of training discriminator
+                 train_loader_disc,  # data loader for discriminator
+                 args):
+
         super().__init__(model, device, args)
         self.alpha_d = alpha_d
+        self.n_iter_disc = n_iter_disc
+        self.train_loader_disc = train_loader_disc
+        self.train_iter_disc = iter(train_loader_disc)
 
         # discriminator
         self.disc = MLP(self.model.out_size, n_domains,
@@ -58,23 +70,48 @@ class DANN(ERM):
                                    lr=args.lr2,
                                    weight_decay=args.wd2)
 
+    def _discriminate(self, in_emb, domain_ids):
+        disc_logits = self.disc(in_emb)
+        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device))
+        return disc_loss
+
     def update(self, batch):
+        # train the discriminator first
+        for _ in range(self.n_iter_disc):
+            self.opt_disc.zero_grad()
+
+            # get unlabeled data
+            try:
+                unl_batch = next(self.train_iter_disc)
+            except StopIteration:
+                self.train_iter_disc = iter(self.train_loader_disc)
+                unl_batch = next(self.train_iter_disc)
+
+            # feed inputs and get embeddings
+            with torch.no_grad():
+                x, _, domain_ids = unl_batch
+                _ = self.predict(x)
+                emb = self.model.emb
+
+            # max discriminator acc
+            disc_loss = self._discriminate(emb, domain_ids)
+            disc_loss.backward()
+            self.opt_disc.step()
+
+        # train classifier and featurizer
         self.optimizer.zero_grad()
-        self.opt_disc.zero_grad()
 
         x, y, domain_ids = batch
         out = self.predict(x, y=y)
         emb = self.model.emb  # feature embeddings
 
         # adversarial training
-        disc_logits = self.disc(GRL.apply(emb))
-        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device))
+        disc_loss = self._discriminate(GRL.apply(emb), domain_ids)
 
         # backward
         total_loss = out.loss + self.alpha_d * disc_loss
         total_loss.backward()
         self.optimizer.step()
-        self.opt_disc.step()
 
         if self.scheduler is not None:
             self.scheduler.step()
