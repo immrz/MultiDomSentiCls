@@ -32,6 +32,7 @@ def parse_args(cmd_line=None):
     parser.add_argument('--n_iter_d', type=int)
     parser.add_argument('--lr2', type=float)
     parser.add_argument('--wd2', type=float)
+    parser.add_argument('--force_uniform', action='store_true')
     parser.add_argument('--extra_losses', type=str, nargs='*')
     parser.add_argument('--n_domains', type=int,
                         help='output size of discriminator')

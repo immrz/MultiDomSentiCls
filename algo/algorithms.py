@@ -57,9 +57,13 @@ class DANN(ERM):
 
         super().__init__(model, device, args)
         self.alpha_d = alpha_d
+
         self.n_iter_disc = n_iter_disc
         self.train_loader_disc = train_loader_disc
         self.train_iter_disc = iter(train_loader_disc)
+
+        # whether to force disc output to be uniform in the outer optimization
+        self.force_uniform = args.force_uniform
 
         # discriminator
         self.disc = MLP(self.model.out_size, n_domains,
@@ -73,10 +77,10 @@ class DANN(ERM):
     def _discriminate(self, in_emb, domain_ids):
         disc_logits = self.disc(in_emb)
         disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device))
-        return disc_loss
+        return disc_logits, disc_loss
 
     def update(self, batch):
-        # train the discriminator first
+        # train the discriminator alone first
         for _ in range(self.n_iter_disc):
             self.opt_disc.zero_grad()
 
@@ -94,24 +98,41 @@ class DANN(ERM):
                 emb = self.model.emb
 
             # max discriminator acc
-            disc_loss = self._discriminate(emb, domain_ids)
+            _, disc_loss = self._discriminate(emb, domain_ids)
             disc_loss.backward()
             self.opt_disc.step()
 
-        # train classifier and featurizer
+        # jointly train classifier, featurizer and discriminator
         self.optimizer.zero_grad()
+        self.opt_disc.zero_grad()
 
         x, y, domain_ids = batch
         out = self.predict(x, y=y)
         emb = self.model.emb  # feature embeddings
 
-        # adversarial training
-        disc_loss = self._discriminate(GRL.apply(emb), domain_ids)
+        if not self.force_uniform:
+            # adversarial training
+            _, disc_loss = self._discriminate(GRL.apply(emb), domain_ids)
 
-        # backward
-        total_loss = out.loss + self.alpha_d * disc_loss
-        total_loss.backward()
+            # backward
+            total_loss = out.loss + self.alpha_d * disc_loss
+            total_loss.backward()
+
+        else:
+            disc_logits, disc_loss = self._discriminate(emb, domain_ids)
+
+            # compute feature extractor loss as the KL divergence btw
+            # disc output prob distr and uniform distr.
+            disc_log_prob = F.log_softmax(disc_logits, dim=1)
+            fe_loss = out.loss - self.alpha_d * torch.mean(disc_log_prob)
+
+            # compute grad
+            disc_loss.backward(inputs=list(self.disc.parameters()),
+                               retain_graph=True)
+            fe_loss.backward(inputs=list(self.model.parameters()))
+
         self.optimizer.step()
+        self.opt_disc.step()
 
         if self.scheduler is not None:
             self.scheduler.step()
