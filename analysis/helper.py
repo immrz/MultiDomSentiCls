@@ -95,23 +95,21 @@ def load_bert_classifier(path):
     return bc
 
 
-def get_model_from_root(prefix):
+def get_model_from_root(root, prefix):
     """
     Get the model that matches the given prefix. One has to make sure `prefix`
     uniquely specifies one model in the root.
     """
-    root = '/home/v-runmao/projects/ATMF/pt/BEST'
     for d in os.listdir(root):
         full_d = os.path.join(root, d)
         if os.path.isdir(full_d) and d.startswith(prefix):
             return load_bert_classifier(os.path.join(full_d, 'best_model.pth'))
 
 
-def get_algorithm_from_root(prefix):
+def get_algorithm_from_root(root, prefix):
     """
     Get the whole algorithm object that matches the given prefix.
     """
-    root = '/home/v-runmao/projects/ATMF/pt/BEST'
     for d in os.listdir(root):
         full_d = os.path.join(root, d)
         if os.path.isdir(full_d) and d.startswith(prefix):
@@ -122,7 +120,8 @@ def get_algorithm_from_root(prefix):
             args.n_train_steps = 0
 
             model = init_model(args.model, 'cuda:0', 2, args)
-            algorithm = init_algorithm(args.algorithm, 'cuda:0', model, args)
+            algorithm = init_algorithm(args.algorithm, 'cuda:0', model,
+                                       {'train': {'loader': range(1)}}, args)
 
             algorithm.load_state_dict(torch.load(os.path.join(
                 full_d, 'best_model.pth'))['module'])

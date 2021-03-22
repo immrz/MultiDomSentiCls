@@ -35,6 +35,14 @@ class ParseKwargs(argparse.Action):
             getattr(namespace, self.dest)[key] = processed_val
 
 
+def freeze_network(net, unfreeze=False):
+    """Freeze or unfreeze a network, depending on the arg `unfreeze`.
+    """
+    assert type(unfreeze) == bool
+    for p in net.parameters():
+        p.requires_grad = unfreeze
+
+
 def set_seed(seed):
     """
     Make the results reproducible.

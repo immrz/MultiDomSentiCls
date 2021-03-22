@@ -5,6 +5,7 @@ import torch.optim as optim
 
 from algo.utils import AlgOut, get_optimizer, get_scheduler, random_pair_batch
 from model.models import GRL, MLP
+from utils import freeze_network
 
 import copy
 
@@ -126,10 +127,26 @@ class DANN(ERM):
             disc_log_prob = F.log_softmax(disc_logits, dim=1)
             fe_loss = out.loss - self.alpha_d * torch.mean(disc_log_prob)
 
+            """Deprecated because the `inputs` arg in backward is supported
+            only after pytorch 1.8.0
+
             # compute grad
             disc_loss.backward(inputs=list(self.disc.parameters()),
                                retain_graph=True)
             fe_loss.backward(inputs=list(self.model.parameters()))
+            """
+
+            # freeze feature extractor and backward on disc
+            freeze_network(self.model)
+            disc_loss.backward(retain_graph=True)
+
+            # freeze disc and backward on feature extractor
+            freeze_network(self.model, unfreeze=True)
+            freeze_network(self.disc)
+            fe_loss.backward()
+
+            # unfreeze disc
+            freeze_network(self.disc, unfreeze=True)
 
         self.optimizer.step()
         self.opt_disc.step()
