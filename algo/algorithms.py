@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
 from algo.utils import AlgOut, get_optimizer, get_scheduler, random_pair_batch
 from model.models import GRL, MLP
@@ -49,22 +50,49 @@ class DANN(ERM):
                  model,
                  device,
                  n_domains,  # number of domains for training
-                 num_hidden_d,
-                 hidden_size_d,
-                 alpha_d,
-                 n_iter_disc,  # number of iterations of training discriminator
-                 train_loader_disc,  # data loader for discriminator
-                 args):
+                 args,
+                 num_hidden_d=1,
+                 hidden_size_d=1024,
+                 alpha_d=1.0,
+                 n_iter_d=0,  # num of iter to train disc
+                 uniform_d=False,  # force uniform output of disc
+                 reweight_d=False,  # reweight disc output
+                 train_set=None):  # training set
 
         super().__init__(model, device, args)
         self.alpha_d = alpha_d
-
-        self.n_iter_disc = n_iter_disc
-        self.train_loader_disc = train_loader_disc
-        self.train_iter_disc = iter(train_loader_disc)
+        self.n_iter_d = n_iter_d
 
         # whether to force disc output to be uniform in the outer optimization
-        self.force_uniform = args.force_uniform
+        self.uniform_d = uniform_d
+
+        if train_set is not None:
+            self.train_loader_disc = DataLoader(
+                train_set,
+                batch_size=args.batch_size,
+                num_workers=args.num_workers,
+                pin_memory=True,
+                shuffle=True,
+                drop_last=True,
+            )
+            self.train_iter_disc = iter(self.train_loader_disc)
+        else:
+            self.train_loader_disc = None
+            self.train_iter_disc = None
+
+        if train_set is not None and reweight_d:
+            # get training set domain ids
+            domain_ids = train_set.dataset.domain_ids[train_set.indices]
+
+            # get domain sizes and accordingly domain weights
+            _, domain_sizes = torch.unique(domain_ids, return_counts=True)
+            inv_sizes = 1. / domain_sizes
+            self.weight_d = inv_sizes / torch.sum(inv_sizes)
+            print('Reweight enabled for discriminator; weight:', self.weight_d)
+        else:
+            self.weight_d = torch.ones(3, dtype=torch.float32)
+
+        self.weight_d = self.weight_d.to(device)
 
         # discriminator
         self.disc = MLP(self.model.out_size, n_domains,
@@ -77,12 +105,14 @@ class DANN(ERM):
 
     def _discriminate(self, in_emb, domain_ids):
         disc_logits = self.disc(in_emb)
-        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device))
+        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device),
+                                    weight=self.weight_d)
+
         return disc_logits, disc_loss
 
     def update(self, batch):
         # train the discriminator alone first
-        for _ in range(self.n_iter_disc):
+        for _ in range(self.n_iter_d):
             self.opt_disc.zero_grad()
 
             # get unlabeled data
@@ -111,7 +141,7 @@ class DANN(ERM):
         out = self.predict(x, y=y)
         emb = self.model.emb  # feature embeddings
 
-        if not self.force_uniform:
+        if not self.uniform_d:
             # adversarial training
             _, disc_loss = self._discriminate(GRL.apply(emb), domain_ids)
 

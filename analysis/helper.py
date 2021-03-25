@@ -121,7 +121,7 @@ def get_algorithm_from_root(root, prefix):
 
             model = init_model(args.model, 'cuda:0', 2, args)
             algorithm = init_algorithm(args.algorithm, 'cuda:0', model,
-                                       {'train': {'loader': range(1)}}, args)
+                                       None, args)
 
             algorithm.load_state_dict(torch.load(os.path.join(
                 full_d, 'best_model.pth'))['module'])

@@ -30,9 +30,10 @@ def parse_args(cmd_line=None):
     parser.add_argument('--hidden_size_d', type=int)
     parser.add_argument('--num_hidden_d', type=int)
     parser.add_argument('--n_iter_d', type=int)
+    parser.add_argument('--uniform_d', action='store_true')
+    parser.add_argument('--reweight_d', action='store_true')
     parser.add_argument('--lr2', type=float)
     parser.add_argument('--wd2', type=float)
-    parser.add_argument('--force_uniform', action='store_true')
     parser.add_argument('--extra_losses', type=str, nargs='*')
     parser.add_argument('--n_domains', type=int,
                         help='output size of discriminator')
@@ -146,8 +147,8 @@ def main(args):
 
     # build model and algorithm
     model = init_model(args.model, args.device, full_dataset.n_classes, args)
-    algorithm = init_algorithm(args.algorithm, args.device,
-                               model, datasets, args)
+    algorithm = init_algorithm(args.algorithm, args.device, model,
+                               datasets['train']['data'], args)
 
     # model selection
     best_metric = -1e6
