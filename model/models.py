@@ -26,6 +26,7 @@ class BertClassifier(nn.Module):
                  max_token_len=512, need_hook=False):
 
         super().__init__()
+        self.num_labels = num_labels
         self.device = device
         self.max_token_len = max_token_len
         self.emb = None  # used to store BERT feature

@@ -27,13 +27,13 @@ def _hparams(algorithm, dataset, seed):
 
     if algorithm == 'ERM':  # ERM hparams
         hparams['extra_losses'] = ([],)
-    elif algorithm == 'DANN':  # DANN hparams
+    elif algorithm in ['DANN', 'CDAN']:  # DANN hparams
         register('lr2', 2e-5, lambda r: 10**r.uniform(-5, -3.5))
         register('wd2', 0., lambda r: 10**r.uniform(-6, -2))
         register('alpha_d', 0.1, lambda r: 10**r.uniform(-3, 1))
         register('hidden_size_d', 1024, lambda r: r.choice([256, 512, 1024]))
         register('num_hidden_d', 1, lambda r: r.randint(0, 4))
-        register('n_iter_d', 5, lambda r: r.randint(1, 11))
+        register('n_iter_d', 0, lambda r: r.randint(1, 11))
         hparams['extra_losses'] = (['disc_loss'],)
     elif algorithm == 'MLDG':
         register('lr2', 2e-5, lambda r: 10**r.uniform(-5, -3.5))

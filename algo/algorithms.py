@@ -60,8 +60,11 @@ class DANN(ERM):
                  train_set=None):  # training set
 
         super().__init__(model, device, args)
+        self.n_domains = n_domains
         self.alpha_d = alpha_d
         self.n_iter_d = n_iter_d
+        self.num_hidden_d = num_hidden_d
+        self.hidden_size_d = hidden_size_d
 
         # whether to force disc output to be uniform in the outer optimization
         self.uniform_d = uniform_d
@@ -95,15 +98,18 @@ class DANN(ERM):
         self.weight_d = self.weight_d.to(device)
 
         # discriminator
-        self.disc = MLP(self.model.out_size, n_domains,
-                        num_hidden_d, hidden_size_d)
+        self._init_disc()
 
         # optimizer of discriminator
         self.opt_disc = optim.Adam(self.disc.parameters(),
                                    lr=args.lr2,
                                    weight_decay=args.wd2)
 
-    def _discriminate(self, in_emb, domain_ids):
+    def _init_disc(self):
+        self.disc = MLP(self.model.out_size, self.n_domains,
+                        self.num_hidden_d, self.hidden_size_d)
+
+    def _discriminate(self, in_emb, domain_ids, y=None):
         disc_logits = self.disc(in_emb)
         disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device),
                                     weight=self.weight_d)
@@ -124,12 +130,12 @@ class DANN(ERM):
 
             # feed inputs and get embeddings
             with torch.no_grad():
-                x, _, domain_ids = unl_batch
+                x, y, domain_ids = unl_batch
                 _ = self.predict(x)
                 emb = self.model.emb
 
             # max discriminator acc
-            _, disc_loss = self._discriminate(emb, domain_ids)
+            _, disc_loss = self._discriminate(emb, domain_ids, y=y)
             disc_loss.backward()
             self.opt_disc.step()
 
@@ -143,14 +149,14 @@ class DANN(ERM):
 
         if not self.uniform_d:
             # adversarial training
-            _, disc_loss = self._discriminate(GRL.apply(emb), domain_ids)
+            _, disc_loss = self._discriminate(GRL.apply(emb), domain_ids, y=y)
 
             # backward
             total_loss = out.loss + self.alpha_d * disc_loss
             total_loss.backward()
 
         else:
-            disc_logits, disc_loss = self._discriminate(emb, domain_ids)
+            disc_logits, disc_loss = self._discriminate(emb, domain_ids, y=y)
 
             # compute feature extractor loss as the KL divergence btw
             # disc output prob distr and uniform distr.
@@ -187,6 +193,31 @@ class DANN(ERM):
         # also return discriminator loss
         return AlgOut(loss={'loss': out.loss, 'disc_loss': disc_loss},
                       logits=out.logits)
+
+
+class CDAN(DANN):
+    """
+    Conditional Adversarial Domain Adaptation, by M. Long et al., NIPS 2018.
+    """
+    def _init_disc(self):
+        self.disc = MLP(self.model.out_size * self.model.num_labels,
+                        self.n_domains,
+                        self.num_hidden_d,
+                        self.hidden_size_d)
+
+    def _discriminate(self, in_emb, domain_ids, y=None):
+        N, W, D = len(domain_ids), self.model.num_labels, self.model.out_size
+        out_prod = torch.zeros(N, W, D, device=self.device)
+
+        # outer product with hard labels = assign by index
+        out_prod[range(N), y.to(self.device)] = in_emb
+        out_prod = out_prod.flatten(start_dim=1)
+
+        disc_logits = self.disc(out_prod)
+        disc_loss = F.cross_entropy(disc_logits, domain_ids.to(self.device),
+                                    weight=self.weight_d)
+
+        return disc_logits, disc_loss
 
 
 class MLDG(ERM):

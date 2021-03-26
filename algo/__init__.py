@@ -1,4 +1,4 @@
-from algo.algorithms import ERM, DANN, MLDG
+from algo.algorithms import ERM, DANN, CDAN, MLDG
 
 
 def init_algorithm(name, device, model, train_set, args):
@@ -7,6 +7,19 @@ def init_algorithm(name, device, model, train_set, args):
 
     elif name == 'DANN':
         algo = DANN(model,
+                    device,
+                    args.n_domains,
+                    args,
+                    args.num_hidden_d,
+                    args.hidden_size_d,
+                    args.alpha_d,
+                    args.n_iter_d,
+                    args.uniform_d,
+                    args.reweight_d,
+                    train_set)
+
+    elif name == 'CDAN':
+        algo = CDAN(model,
                     device,
                     args.n_domains,
                     args,
