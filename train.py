@@ -50,6 +50,8 @@ def parse_args(cmd_line=None):
     parser.add_argument('--oracle', action='store_true')
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--num_workers', type=int, default=16)
+    parser.add_argument('--domain_balance', action='store_true',
+                        help='NOTE: If set, actual batch_size is B*N')
 
     # optimization arg
     parser.add_argument('--n_epochs', type=int)

@@ -29,8 +29,8 @@ def init_dataset(name, args):
                          'pin_memory': True}
 
         if split == 'train':
-            if args.algorithm == 'MLDG':
-                # sample from all source domains each time
+            if args.algorithm == 'MLDG' or args.domain_balance:
+                # balance sample from all source domains each time
                 bs = DomainSampler(full_dataset.domain_ids[data.indices],
                                    n_samples_per_domain=args.batch_size)
                 loader = DataLoader(data,
