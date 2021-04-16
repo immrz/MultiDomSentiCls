@@ -297,3 +297,85 @@ class MLDG(ERM):
 
         return AlgOut(loss={'loss': loss / nd, 'meta_loss': meta_loss / nd},
                       logits=logits)
+
+
+class IRM(ERM):
+    """Invariant Risk Minimization, by Arjovsky et al., arXiv 2019.
+    Code from DomainBed.
+    """
+    def __init__(self,
+                 model,
+                 device,
+                 n_samples_per_domain,
+                 args,
+                 penalty_weight=100.0,
+                 penalty_anneal_iters=500):
+        super().__init__(model, device, args)
+        self.n_samples_per_domain = n_samples_per_domain
+        self.args = args
+        self.penalty_weight = penalty_weight
+        self.penalty_anneal_iters = penalty_anneal_iters
+        self.register_buffer('update_count', torch.tensor([0]))
+
+    def _irm_penalty(self, logits, y):
+        dummy_w = torch.tensor(1.).to(self.device).requires_grad_()
+        loss_1 = F.cross_entropy(logits[::2] * dummy_w, y[::2])
+        loss_2 = F.cross_entropy(logits[1::2] * dummy_w, y[1::2])
+        grad_1 = torch.autograd.grad(loss_1, [dummy_w], create_graph=True)[0]
+        grad_2 = torch.autograd.grad(loss_2, [dummy_w], create_graph=True)[0]
+        # estimate of the squared norm of gradient
+        norm = torch.sum(grad_1 * grad_2)
+        return norm
+
+    def update(self, batch):
+        """
+        For IRM, DomainSampler is used in data loader. Therefore, `batch`
+        is assumed to contain n_src_dom * n_samples_per_dom samples. And the
+        samples are already ordered by domains.
+        """
+        x, y, _ = batch
+        assert len(x) % self.n_samples_per_domain == 0
+        n_src_domains = len(x) // self.n_samples_per_domain
+        y = y.to(self.device)
+
+        # set penalty weight to 1.0 during annealing stage
+        penalty_weight = 1.0 if self.update_count < self.penalty_anneal_iters \
+            else self.penalty_weight
+
+        # reset Adam when annealing ends because there would be a sharp
+        # jump in gradient magnitudes
+        if self.update_count == self.penalty_anneal_iters \
+                and self.args.optimizer.startswith('Adam'):
+            self.optimizer = get_optimizer(self.args.optimizer,
+                                           self.model,
+                                           self.args)
+        self.optimizer.zero_grad()
+
+        # record batch loss and prediction
+        loss, logits = 0., []
+
+        for i in range(n_src_domains):
+            a = i * self.n_samples_per_domain  # start index
+            b = a + self.n_samples_per_domain  # end index
+            out = self.predict(x[a:b], y=y[a:b])
+            penalty = self._irm_penalty(out.logits, y[a:b])
+
+            # accumulate gradients
+            (out.loss + penalty_weight * penalty).backward()
+
+            # record batch loss and prediction
+            loss += out.loss.item()
+            logits.append(out.logits.detach().clone())
+
+        # rescale the gradients by number of source domains
+        factor = 1. / n_src_domains
+        for p in self.model.parameters():
+            if p.grad is not None:
+                p.grad *= factor
+
+        self.optimizer.step()
+        self.update_count += 1
+
+        loss /= n_src_domains
+        logits = torch.cat(logits, dim=0)
+        return AlgOut(loss=loss, logits=logits)

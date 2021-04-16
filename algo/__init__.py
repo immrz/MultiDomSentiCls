@@ -1,4 +1,4 @@
-from algo.algorithms import ERM, DANN, CDAN, MLDG
+from algo.algorithms import ERM, DANN, CDAN, MLDG, IRM
 
 
 def init_algorithm(name, device, model, train_set, args):
@@ -33,6 +33,11 @@ def init_algorithm(name, device, model, train_set, args):
 
     elif name == 'MLDG':
         algo = MLDG(model, device, args.batch_size, args.alpha_meta, args)
+
+    elif name == 'IRM':
+        algo = IRM(model, device, args.batch_size, args,
+                   penalty_weight=args.penalty_weight,
+                   penalty_anneal_iters=args.penalty_anneal_iters)
 
     else:
         raise NotImplementedError

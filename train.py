@@ -41,6 +41,10 @@ def parse_args(cmd_line=None):
     # MLDG
     parser.add_argument('--alpha_meta', type=float)
 
+    # IRM
+    parser.add_argument('--penalty_weight', type=float)
+    parser.add_argument('--penalty_anneal_iters', type=int)
+
     # model arg
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--device', type=str, default='cuda:0')
@@ -74,6 +78,7 @@ def parse_args(cmd_line=None):
     parser.add_argument('--resume', action='store_true')
     parser.add_argument('--save_best', action='store_true')
     parser.add_argument('--save_last', action='store_true')
+    parser.add_argument('--all_targets', action='store_true')
 
     # parse args
     if cmd_line is None:
@@ -195,4 +200,12 @@ def main(args):
 
 if __name__ == '__main__':
     args = parse_args()
-    main(args)
+    if not args.all_targets:
+        main(args)
+    else:
+        origin_log_dir = args.log_dir
+        for target in ['A', 'T', 'M', 'F']:
+            print(f'Targeting {target}:\n' + '='*80)
+            args.target = target
+            args.log_dir = os.path.join(origin_log_dir, f'tgt_{target}')
+            main(args)

@@ -24,10 +24,9 @@ def _hparams(algorithm, dataset, seed):
     register('wd', 0.01, lambda r: 10**r.randint(-4, 0))
     hparams['optimizer'] = ('AdamW',)
     hparams['scheduler'] = ('linear_schedule_with_warmup',)
+    hparams['extra_losses'] = ([],)
 
-    if algorithm == 'ERM':  # ERM hparams
-        hparams['extra_losses'] = ([],)
-    elif algorithm in ['DANN', 'CDAN']:  # DANN hparams
+    if algorithm in ['DANN', 'CDAN']:  # DANN hparams
         register('lr2', 2e-5, lambda r: 10**r.uniform(-5, -3.5))
         register('wd2', 0., lambda r: 10**r.uniform(-6, -2))
         register('alpha_d', 0.1, lambda r: 10**r.uniform(-3, 1))
@@ -40,6 +39,10 @@ def _hparams(algorithm, dataset, seed):
         register('wd2', 0., lambda r: 10**r.uniform(-6, -2))
         register('alpha_meta', 1.0, lambda r: 10**r.uniform(-3, 1))
         hparams['extra_losses'] = (['meta_loss'],)
+    elif algorithm == 'IRM':
+        register('penalty_weight', 100., lambda r: 10.**r.uniform(2, 5))
+        register('penalty_anneal_iters', 500,
+                 lambda r: r.choice([100, 500, 1000]))
     else:
         raise NotImplementedError
 

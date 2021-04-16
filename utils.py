@@ -249,7 +249,7 @@ class Logger:
         os.fsync(self.file.fileno())
 
     def close(self):
-        self.console.close()
+        # self.console.close()
         self.file.close()
 
 
