@@ -43,7 +43,7 @@ def _hparams(algorithm, dataset, seed):
         register('penalty_weight', 100., lambda r: 10.**r.uniform(2, 5))
         register('penalty_anneal_iters', 500,
                  lambda r: r.choice([100, 500, 1000]))
-    else:
+    elif algorithm != 'ERM':
         raise NotImplementedError
 
     if dataset == 'ATMF':

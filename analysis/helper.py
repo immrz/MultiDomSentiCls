@@ -55,9 +55,17 @@ def combine_all_csv(root, arg_names, extra_fields=[]):
             args = parse_log_to_args(fi, arg_names)
 
         tables = []
+        has_results = True
 
         for split in splits:
-            table = pd.read_csv(os.path.join(dirpath, f'{split}_epochs.csv'))
+            try:
+                table = pd.read_csv(os.path.join(
+                    dirpath, f'{split}_epochs.csv'))
+            except pd.errors.EmptyDataError:
+                print(f'Cannot read from {split} in {dirpath}')
+                has_results = False
+                break
+
             table = table.set_index('Epoch')
             table = table[fields]  # only avg_loss, avg_acc, etc
 
@@ -66,6 +74,10 @@ def combine_all_csv(root, arg_names, extra_fields=[]):
                 zip([split] * len(fields), table.columns)
             )
             tables.append(table)
+
+        # if error occurs
+        if not has_results:
+            continue
 
         # table corresponds to one job
         table = pd.concat(tables, axis=1)
