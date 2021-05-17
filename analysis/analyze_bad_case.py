@@ -76,7 +76,7 @@ def int_to_label(i):
     return 'pos' if i == 1 else 'neg'
 
 
-def interprete_texts(insts, lig, model, tokenizer):
+def interpret_texts(insts, lig, model, tokenizer):
     res = []
 
     for inst in insts:
@@ -142,4 +142,4 @@ def visualize(algorithm, target, n=10, sort=False, max_len=None):
         bad_cases = [x for x in bad_cases if len(x['text'].split()) <= max_len]
     bad_cases = bad_cases[:n]
 
-    interprete_texts(bad_cases, lig, bert, bert.tknz)
+    interpret_texts(bad_cases, lig, bert, bert.tknz)

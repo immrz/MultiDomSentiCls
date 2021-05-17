@@ -6,4 +6,5 @@ log
 pt
 .ptignore
 analysis/**
-!analysis/*.py
+!analysis/IRM
+!analysis/**/*.py
