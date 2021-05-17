@@ -214,9 +214,10 @@ def load_and_visualize(algorithm: str,
     viz.visualize_text([r['vis'] for r in res])
 
 
-for algorithm in ['ERM', 'IRM']:
-    for target in 'ATMF':
-        print(f'{algorithm} | {target}')
-        save(algorithm=algorithm, target=target, max_len=100)
-        print('finished!')
-print('Thanks for your patience!')
+if __name__ == '__main__':
+    for algorithm in ['ERM', 'IRM']:
+        for target in 'ATMF':
+            print(f'{algorithm} | {target}')
+            save(algorithm=algorithm, target=target, max_len=100)
+            print('finished!')
+    print('Thanks for your patience!')
