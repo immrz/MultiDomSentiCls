@@ -116,7 +116,7 @@ def get_visualization(algorithm: str,
 
         attributions = attributions.sum(dim=-1).squeeze(0)
         attributions = attributions / torch.norm(attributions)
-        attributions = attributions.cpu().detach().numpy()
+        attributions = attributions.cpu().numpy()
 
         all_tokens = tokenizer.convert_ids_to_tokens(
             input_ids.squeeze().tolist()
@@ -143,6 +143,13 @@ def get_visualization(algorithm: str,
     return res
 
 
+def box_info(algorithm, target, domain, max_len, start, end, box_width=90):
+    msg = f'|    Model: {algorithm}_tgt_{target}; Domain: {domain}; Max Len: {max_len}; Start Index: {start}; End Index: {end}'
+    print('+' + '-' * (box_width-2) + '+')
+    print(msg + ' '*(box_width-1-len(msg)) + '|')
+    print('+' + '-' * (box_width-2) + '+')
+
+
 def visualize(algorithm: str,
               target: str,
               domain: str,
@@ -155,10 +162,7 @@ def visualize(algorithm: str,
     res = get_visualization(algorithm, target, data)
 
     # print message and return the data
-    msg = f'|    Domain: {domain}; Max Len: {max_len}; Start Index: {start}; End Index: {end}'
-    print('+' + '-' * 78 + '+')
-    print(msg + ' '*(79-len(msg)) + '|')
-    print('+' + '-' * 78 + '+')
+    box_info(algorithm, target, domain, max_len, start, end)
     viz.visualize_text([r['vis'] for r in res])
 
 
@@ -168,7 +172,7 @@ def save(algorithm: str,
          data_path: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM/has_negation.csv',
          save_root: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM') -> None:
 
-    fname = f'{algorithm}_tgt_{target}_vis.pkl'
+    fname = f'{algorithm}_tgt_{target}_{max_len}_vis.pkl'
     # setting chunk_id and chunk_size to large numbers simply means using all the data
     data, _ = get_data(path=data_path, chunk_id=100, chunk_size=1000000, max_len=max_len)
     print(f'With Max Len {max_len}, the data size is {len(data)}.')
@@ -179,13 +183,14 @@ def save(algorithm: str,
 
 def load_and_visualize(algorithm: str,
                        target: str,
+                       max_len: int,
                        domain: str,
                        save_root: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM',
                        only_wrong: bool = False,
                        chunk_id: int = 0,
                        chunk_size: int = 20) -> None:
 
-    fname = f'{algorithm}_tgt_{target}_vis.pkl'
+    fname = f'{algorithm}_tgt_{target}_{max_len}_vis.pkl'
     with open(os.path.join(save_root, fname), 'rb') as fi:
         res = pickle.load(fi)
 
@@ -205,10 +210,7 @@ def load_and_visualize(algorithm: str,
     res = res[start:end]
 
     # print message and return the data
-    msg = f'|    Domain: {domain}; Start Index: {start}; End Index: {end}'
-    print('+' + '-' * 78 + '+')
-    print(msg + ' '*(79-len(msg)) + '|')
-    print('+' + '-' * 78 + '+')
+    box_info(algorithm, target, domain, max_len, start, end)
     viz.visualize_text([r['vis'] for r in res])
 
 
