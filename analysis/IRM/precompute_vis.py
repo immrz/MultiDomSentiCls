@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from captum.attr import LayerIntegratedGradients
 from captum.attr import visualization as viz
 
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import os
 import pickle
 from tqdm.auto import tqdm
@@ -21,7 +21,7 @@ def get_data(path: str,
              chunk_id: int,
              chunk_size: int,
              max_len: int = -1,
-             domain: str = None) -> List[Dict]:
+             domain: str = None) -> Tuple[pd.DataFrame, Tuple[int, int]]:
     """Get data with specified `domain' from `path'. If `domain' is None, get all domains.
     Data indexed from chunk_id*chunk_size to (chunk_id+1)*chunk_size is retrieved.
     Sentences whose length is greater than `max_len' are excluded to avoid GPU OutOfMemory.

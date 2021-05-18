@@ -1,11 +1,15 @@
 import os
 import torch
 import pandas as pd
+import numpy as np
 
+from model import init_model
 from model.models import BertClassifier
 from train import parse_args
 from algo import init_algorithm
-from model import init_model
+from utils import MABinary, safe_divide
+
+from typing import List, Union
 
 
 def parse_log_to_args(fi, names=None):
@@ -139,3 +143,42 @@ def get_algorithm_from_root(root, prefix):
                 full_d, 'best_model.pth'))['module'])
 
             return algorithm.to('cuda:0')
+
+
+def do_for_all_algo_and_tgt(algo: List[str], tgt: Union[str, List[str]]):
+    """Return a decorator. This decorator would run the decorated function
+    with all possible (algorithm, target) pairs as arguments.
+    The decorated function must accept `algorithm` and `target` as keyword
+    arguments in declaration.
+    """
+    def decorator(f):
+        def g(*args, **kwargs):
+            for a in algo:
+                for t in tgt:
+                    f(*args, algorithm=a, target=t, **kwargs)
+        return g
+    return decorator
+
+
+def cmp_binary_pred_and_label(pred: List[int], label: List[int]) -> None:
+    """Compare the predictions and labels in a binary setting, assuming they
+    are either 0 or 1. Calculate acc, precision, recall, f1 and specificity
+    and print them in a friendly view.
+    """
+    assert len(pred) != 0 and len(pred) == len(label)
+    stats = MABinary()
+    stats.update(0, np.array(pred), np.array(label))
+    spec = safe_divide(stats.tn, stats.tn + stats.fp)
+
+    # print
+    dash = '-' * 64
+    print(dash)
+    print('{:<8s}{:<8s}{:<12s}{:<8s}{:<8s}{:<16s}'.format('N',
+                                                          'Acc',
+                                                          'Precision',
+                                                          'Recall',
+                                                          'F1',
+                                                          'Specificity'))
+    print(dash)
+    print('{:<8d}{:<8.3f}{:<12.3f}{:<8.3f}{:<8.3f}{:<16.3f}'.format(
+        stats.n, stats.avg_acc, stats.precision, stats.recall, stats.f1, spec))
