@@ -1,5 +1,9 @@
 import os
 import torch
+from torch.nn.functional import softmax
+from torch.utils.data import DataLoader
+
+from tqdm.auto import tqdm
 import pandas as pd
 import numpy as np
 
@@ -9,7 +13,7 @@ from train import parse_args
 from algo import init_algorithm
 from utils import MABinary, safe_divide
 
-from typing import List, Union
+from typing import List, Union, Dict, Tuple
 
 
 def parse_log_to_args(fi, names=None):
@@ -160,7 +164,9 @@ def do_for_all_algo_and_tgt(algo: List[str], tgt: Union[str, List[str]]):
     return decorator
 
 
-def cmp_binary_pred_and_label(pred: List[int], label: List[int]) -> None:
+def cmp_binary_pred_and_label(pred: List[int],
+                              label: List[int],
+                              header: bool = True) -> Dict[str, float]:
     """Compare the predictions and labels in a binary setting, assuming they
     are either 0 or 1. Calculate acc, precision, recall, f1 and specificity
     and print them in a friendly view.
@@ -170,15 +176,43 @@ def cmp_binary_pred_and_label(pred: List[int], label: List[int]) -> None:
     stats.update(0, np.array(pred), np.array(label))
     spec = safe_divide(stats.tn, stats.tn + stats.fp)
 
+    # keys and values
+    keys = ['N', 'Acc', 'Precision', 'Recall', 'F1', 'Specificity']
+    vals = [stats.n, stats.avg_acc, stats.precision,
+            stats.recall, stats.f1, spec]
     # print
-    dash = '-' * 64
-    print(dash)
-    print('{:<8s}{:<8s}{:<12s}{:<8s}{:<8s}{:<16s}'.format('N',
-                                                          'Acc',
-                                                          'Precision',
-                                                          'Recall',
-                                                          'F1',
-                                                          'Specificity'))
-    print(dash)
-    print('{:<8d}{:<8.3f}{:<12.3f}{:<8.3f}{:<8.3f}{:<16.3f}'.format(
-        stats.n, stats.avg_acc, stats.precision, stats.recall, stats.f1, spec))
+    if header:
+        dash = '-' * 64
+        print(dash)
+        print('{:<8s}{:<8s}{:<12s}{:<8s}{:<8s}{:<16s}'.format(*keys))
+        print(dash)
+    print('{:<8d}{:<8.3f}{:<12.3f}{:<8.3f}{:<8.3f}{:<16.3f}'.format(*vals))
+
+    return dict(zip(keys, vals))
+
+
+@torch.no_grad()
+def get_pred_and_prob(model,
+                      all_txt: List[str],
+                      batch_size: int = 64) -> Tuple[List[str], List[float]]:
+    """Get the predictions and prediction probabilities using model on
+    the given list of texts. The model should be a BertClassifier.
+    """
+    all_pred = []
+    all_pred_prob = []
+    loader = DataLoader(all_txt, batch_size=batch_size, drop_last=False)
+
+    for batch in tqdm(loader):
+        assert isinstance(batch, list)
+        assert isinstance(batch[0], str)
+
+        logits = model(batch)
+        pred = torch.max(logits, dim=1)[1]
+        prob = softmax(logits, dim=1)[range(len(pred)), pred]
+
+        all_pred.extend(['positive' if x == 1 else 'negative'
+                         for x in pred.tolist()])
+        all_pred_prob.extend(prob.tolist())
+
+    assert len(all_pred) == len(all_txt) and len(all_pred_prob) == len(all_txt)
+    return all_pred, all_pred_prob
