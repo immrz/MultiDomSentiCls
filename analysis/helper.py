@@ -120,10 +120,14 @@ def get_model_from_root(root, prefix):
     Get the model that matches the given prefix. One has to make sure `prefix`
     uniquely specifies one model in the root.
     """
+    m = None
     for d in os.listdir(root):
         full_d = os.path.join(root, d)
         if os.path.isdir(full_d) and d.startswith(prefix):
-            return load_bert_classifier(os.path.join(full_d, 'best_model.pth'))
+            m = load_bert_classifier(os.path.join(full_d, 'best_model.pth'))
+            break
+    assert m is not None, 'Model not found!'
+    return m
 
 
 def get_algorithm_from_root(root, prefix):
@@ -164,12 +168,27 @@ def do_for_all_algo_and_tgt(algo: List[str], tgt: Union[str, List[str]]):
     return decorator
 
 
+def display_metrics_nicely(metrics: Dict[str, float], header: bool = True):
+    """Display the metrics like accuracy, precision, etc., in a nice view.
+    """
+    cand = [('N', '{:<8s}', '{:<8d}'),
+            ('Acc', '{:<8s}', '{:<8.3f}'),
+            ('Precision', '{:<12s}', '{:<12.3f}'),
+            ('Recall', '{:<8s}', '{:<8.3f}'),
+            ('F1', '{:<8s}', '{:<8.3f}'),
+            ('Specificity', '{:<16s}', '{:<16.3f}')]
+    if header:
+        dash = '-' * 64
+        print(dash)
+        print(''.join([b.format(a) for a, b, _ in cand if a in metrics]))
+        print(dash)
+    print(''.join([c.format(metrics[a]) for a, _, c in cand if a in metrics]))
+
+
 def cmp_binary_pred_and_label(pred: List[int],
-                              label: List[int],
-                              header: bool = True) -> Dict[str, float]:
+                              label: List[int]) -> Dict[str, float]:
     """Compare the predictions and labels in a binary setting, assuming they
-    are either 0 or 1. Calculate acc, precision, recall, f1 and specificity
-    and print them in a friendly view.
+    are either 0 or 1. Calculate acc, precision, recall, f1 and specificity.
     """
     assert len(pred) != 0 and len(pred) == len(label)
     stats = MABinary()
@@ -180,13 +199,6 @@ def cmp_binary_pred_and_label(pred: List[int],
     keys = ['N', 'Acc', 'Precision', 'Recall', 'F1', 'Specificity']
     vals = [stats.n, stats.avg_acc, stats.precision,
             stats.recall, stats.f1, spec]
-    # print
-    if header:
-        dash = '-' * 64
-        print(dash)
-        print('{:<8s}{:<8s}{:<12s}{:<8s}{:<8s}{:<16s}'.format(*keys))
-        print(dash)
-    print('{:<8d}{:<8.3f}{:<12.3f}{:<8.3f}{:<8.3f}{:<16.3f}'.format(*vals))
 
     return dict(zip(keys, vals))
 

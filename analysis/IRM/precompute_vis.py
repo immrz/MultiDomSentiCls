@@ -57,7 +57,6 @@ def get_visualization(algorithm: str,
     # get the classifier
     algo_root = os.path.join(root, f'{algorithm}_BEST')
     model = get_model_from_root(algo_root, f'{algorithm}_tgt_{target}').to('cuda:0')
-    assert model is not None, "Didn't find the model!"
     assert model.device == 'cuda:0', 'Model is not on GPU!'
 
     # prerequisites
