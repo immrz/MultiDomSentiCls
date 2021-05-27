@@ -62,12 +62,15 @@ def get_visualization(algorithm: str,
     # prerequisites
     model.eval()
     tokenizer = model.tknz  # tokenizer
-    layer = model.bfsc.bert.embeddings  # the word embedding layer to interpret on
+    layer = model.bfsc.bert.embeddings  # the embedding layer to interpret on
+    data = data.copy()  # will modify data inplace
 
-    # predict the texts first
-    all_pred, all_pred_prob = get_pred_and_prob(model, data['text'].tolist())
-    data['pred'] = all_pred
-    data['pred_prob'] = all_pred_prob
+    # predict the texts if they are not predicted yet
+    key_pred, key_pred_prob = f'{algorithm}_pred', f'{algorithm}_pred_prob'
+    if (key_pred not in data.columns) or (key_pred_prob not in data.columns):
+        pred, pred_prob = get_pred_and_prob(model, data['text'].tolist())
+        data[key_pred] = pred
+        data[key_pred_prob] = pred_prob
 
     # define the forward function
     def f(input_ids, token_type_ids, position_ids, attention_mask):
@@ -108,8 +111,8 @@ def get_visualization(algorithm: str,
         )
 
         vis = viz.VisualizationDataRecord(attributions,
-                                          row['pred_prob'],
-                                          row['pred'],
+                                          row[key_pred_prob],
+                                          row[key_pred],
                                           row['label'],
                                           'NA',
                                           attributions.sum(),
@@ -120,8 +123,8 @@ def get_visualization(algorithm: str,
                     'text': row['text'],
                     'label': row['label'],
                     'domain': row['domain'],
-                    'pred': row['pred'],
-                    'pred_prob': row['pred_prob']})
+                    'pred': row[key_pred],
+                    'pred_prob': row[key_pred_prob]})
 
         torch.cuda.empty_cache()
 
@@ -180,7 +183,8 @@ def load_and_visualize(algorithm: str,
                        max_len: int,
                        domain: str,
                        save_root: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM',
-                       only_wrong: bool = False,
+                       label: str = None,
+                       t_or_f: str = None,
                        chunk_id: int = 0,
                        chunk_size: int = 20) -> None:
 
@@ -191,9 +195,18 @@ def load_and_visualize(algorithm: str,
     # keep the specified domain
     res = [r for r in res if r['domain'] == domain]
 
-    # whether only samples that are done wrong
-    if only_wrong:
-        res = [r for r in res if r['label'] != r['pred']]
+    # whether only samples with particular label
+    if label is not None:
+        assert label in ['positive', 'negative']
+        res = [r for r in res if r['label'] == label]
+
+    # whether only samples that are done wrong or right
+    if t_or_f is not None:
+        assert t_or_f in ['true', 'false']
+        if t_or_f == 'true':
+            res = [r for r in res if r['label'] == r['pred']]
+        else:
+            res = [r for r in res if r['label'] != r['pred']]
 
     # slice
     N = len(res)
@@ -206,6 +219,35 @@ def load_and_visualize(algorithm: str,
     # print message and return the data
     box_info(algorithm, target, domain, max_len, start, end)
     viz.visualize_text([r['vis'] for r in res])
+
+    return [(r['index'], r['text']) for r in res]
+
+
+def visualize_adversary(algorithm: str,
+                        target: str,
+                        adversary: List[Tuple[int, str]],
+                        data_path: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM/postprocessed.csv',
+                        save_root: str = '/home/v-runmao/projects/DomShift-ATMF/analysis/IRM',
+                        comparison: bool = True,
+                        max_len: int = 100) -> None:
+    idx, texts = zip(*adversary)
+    data = pd.read_csv(data_path).loc[list(idx)].copy()
+    data.drop(['ERM_pred', 'ERM_pred_prob'], axis=1, inplace=True)
+
+    # compute the visualization of adversarial examples
+    data['text'] = texts
+    adv_res = get_visualization(algorithm, target, data)
+
+    # load the visualization of original texts
+    if comparison:
+        fname = f'{algorithm}_tgt_{target}_{max_len}_vis.pkl'
+        with open(os.path.join(save_root, fname), 'rb') as fi:
+            all_res = pickle.load(fi)
+        origin_res = [r for r in all_res if r['index'] in idx]
+        adv_res = [r for pair in zip(origin_res, adv_res) for r in pair]
+
+    # visualize
+    viz.visualize_text([r['vis'] for r in adv_res])
 
 
 if __name__ == '__main__':
