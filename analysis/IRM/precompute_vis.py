@@ -186,7 +186,7 @@ def load_and_visualize(algorithm: str,
                        label: str = None,
                        t_or_f: str = None,
                        chunk_id: int = 0,
-                       chunk_size: int = 20) -> None:
+                       chunk_size: int = 20) -> List[Tuple[int, str]]:
 
     fname = f'{algorithm}_tgt_{target}_{max_len}_vis.pkl'
     with open(os.path.join(save_root, fname), 'rb') as fi:
