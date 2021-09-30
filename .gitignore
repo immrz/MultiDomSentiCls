@@ -1,10 +1,12 @@
-*.ipynb
+# *.ipynb
 **/__pycache__
 *.csv
 log
 .ptconfig
 pt
 .ptignore
-analysis/**
-!analysis/IRM
-!analysis/**/*.py
+# analysis/**
+# !analysis/IRM
+# !analysis/**/*.py
+*.pkl
+.ipynb_checkpoints
